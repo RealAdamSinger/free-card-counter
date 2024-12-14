@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
+import { Box } from "@mui/material";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: "#35654d",
+    },
+    secondary: {
+      main: "#0f0",
+    },
+  },
 });
 
 export const metadata: Metadata = {
@@ -24,8 +26,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        {children}
+      <body>
+        <ThemeProvider theme={theme}>
+          <Box height="100vh" width="100vw">
+            {children}
+          </Box>
+        </ThemeProvider>
       </body>
     </html>
   );
