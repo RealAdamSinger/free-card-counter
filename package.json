@@ -5,10 +5,10 @@
   "homepage": "https://RealAdamSinger.github.io/free-card-counter",
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "deploy": "npm run build && npx next export && gh-pages -d out"
+    "build": "next build",
+    "deploy": "npm run build && gh-pages -d out"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

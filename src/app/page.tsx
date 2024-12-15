@@ -223,7 +223,15 @@ export default function Home() {
         <FormControlLabel value="8" control={<Radio />} label="8" />
         <FormControlLabel value="9" control={<Radio />} label="9" />
         <FormControlLabel value="10" control={<Radio />} label="10" />
-        <Button>
+        <Button
+          color="primary"
+          onClick={() => {
+            setDiscardPile([]);
+            setDealerHand([]);
+            setPlayerHand([]);
+            setOtherCards([]);
+          }}
+        >
           Reset Shoe
         </Button>
       </RadioGroup>
@@ -247,7 +255,7 @@ export default function Home() {
   );
 
   const playerHandJsx = (
-    <FormControl>
+    <FormControl sx={{ width: "100%" }}>
       <FormLabel id="demo-row-radio-buttons-group-label">Your Hand</FormLabel>
       <HandSelection
         selectedCards={playerHand}
@@ -278,7 +286,7 @@ export default function Home() {
       <Box alignContent="center" alignItems="center" justifyContent="center" textAlign="center">
         {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
           <Typography variant="caption" component="div">
-            {outcomeChance.dealerBust}% Chance Dealer Busts:
+            {outcomeChance.dealerBust}% Chance Dealer Busts
           </Typography>
         )}
         <Hand
@@ -337,7 +345,7 @@ export default function Home() {
   );
 
   const otherCardsJsx = (
-    <FormControl>
+    <FormControl sx={{ width: "100%" }}>
       <FormLabel id="demo-row-radio-buttons-group-label">Other Cards at the Table</FormLabel>
       <HandSelection
         selectedCards={otherCards}
@@ -363,22 +371,29 @@ export default function Home() {
           container
           size={{ xs: 12 }}
           maxWidth="md" alignSelf="center" alignItems="start"
+          spacing={1}
+          p={2}
         >
-          <Grid2 size={{ xs: 12 }} p={2}>
+          <Grid2 size={{ xs: 12 }}>
             {totalDecksInputJsx}
           </Grid2>
-          <Grid2 size={{ xs: 12 }} p={2}>
+          <Grid2 size={{ xs: 12 }}>
             {dealersHandJsx}
           </Grid2>
-          <Grid2 size={{ xs: 12 }} height={400} width="100%" p={2}>
+          <Grid2 size={{ xs: 12 }} height={350} width="100%">
             {cardsInPlayJsx}
           </Grid2>
-          <Grid2 size={{ xs: 12 }} p={2}>
+          <Grid2 size={{ xs: 12 }}>
             {playerHandJsx}
           </Grid2>
-          <Grid2 size={{ xs: 12 }} p={2}>
+          <Grid2 size={{ xs: 12 }}>
             {otherCardsJsx}
           </Grid2>
+          {isBelowMd && (
+            <Grid2 size={{ xs: 12 }}>
+              {drawerJsx}
+            </Grid2>
+          )}
         </Grid2>
       </FlexItem>
     </FlexContainer>
