@@ -15,9 +15,7 @@ import {
   FormControl,
   FormControlLabel,
   FormLabel,
-  Grid,
   Grid2,
-  Icon,
   IconButton,
   Radio,
   RadioGroup,
@@ -63,10 +61,6 @@ export default function Home() {
 
   const numOfEachCard = totalDecks * 4;
   const usedCards = [...dealerHand, ...playerHand, ...otherCards, ...discardPile];
-  const cardsInDrawPileList = CARDS.reduce<Array<string>>((acc, card) => {
-    const numCards = numOfEachCard - usedCards.filter((c) => c === card).length;
-    return [...acc, ...Array(numCards).fill(card)];
-  }, []);
 
   const numCardsInDrawPile: CardsInDrawPile = CARDS.reduce<CardsInDrawPile>(
     (acc, card) => {
@@ -78,7 +72,7 @@ export default function Home() {
     num9s: 0, num10s: 0, numJs: 0, numQs: 0, numKs: 0, numAs: 0
   });
 
-  const { num2s, num3s, num4s, num5s, num6s, num7s, num8s, num9s, num10s, numJs, numQs, numKs, numAs } = numCardsInDrawPile;
+  const { num2s, num3s, num4s, num5s, num6s,  num10s, numJs, numQs, numKs, numAs } = numCardsInDrawPile;
 
   const hiLowCount = num2s + num3s + num4s + num5s + num6s - num10s - numJs - numQs - numKs - numAs;
 
@@ -87,7 +81,6 @@ export default function Home() {
   const oddsPlayerBust = getChanceOfPlayerBustIfHit({ playerHand, numCardsInDrawPile });
 
 
-  const isBelowMd = useMediaQuery((theme) => theme.breakpoints.down("md"));
   const isBelowXl = useMediaQuery((theme) => theme.breakpoints.down("xl"));
 
   const outcomeChance = useMemo(() => {

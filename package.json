@@ -2,11 +2,13 @@
   "name": "free-card-counter",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://RealAdamSinger.github.io/free-card-counter",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "deploy": "npm run build && npx next export && gh-pages -d out"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -24,6 +26,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.1.0",
+    "gh-pages": "^6.2.0",
     "typescript": "^5"
   }
 }

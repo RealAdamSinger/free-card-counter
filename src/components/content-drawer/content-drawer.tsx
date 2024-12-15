@@ -1,6 +1,6 @@
 'use client';
-import React, { useRef } from 'react';
-import { Box, Portal } from "@mui/material";
+import React from 'react';
+import { Box } from "@mui/material";
 import { FlexContainer, FlexItem } from '../flex-content/flex-content';
 
 export interface ContentDrawerLayoutProps {
