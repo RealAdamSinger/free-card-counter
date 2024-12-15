@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ContentDrawerLayout } from "@/components/content-drawer/content-drawer";
 import { FlexContainer, FlexItem } from "@/components/flex-content/flex-content";
-import { getChanceOfOutcomes, getChanceOfPlayerBustIfHit, getHandValue } from "./math";
+import { getChanceOfOutcomes, getHandValue } from "./math";
 
 import RemoveIcon from '@mui/icons-material/Remove';
 import CasinoIcon from '@mui/icons-material/Casino';
@@ -32,7 +32,13 @@ import {
   useMediaQuery
 } from "@mui/material";
 
+function formatPercent(num: number) {
+  return `${Math.round(num * 100)}%`;
+}
 
+function formatEv(num: number) {
+  return num.toFixed(2);
+}
 
 // array of cards
 const CARDS: Array<string> = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
@@ -56,7 +62,7 @@ export default function Home() {
 
   const { mode, setMode } = useThemeContext();
 
-  const [totalDecks, setTotalDecks] = useState<number>(6);
+  const [totalDecks, setTotalDecks] = useState<number>(8);
 
   const [discardPile, setDiscardPile] = useState<Array<string>>([]);
 
@@ -83,7 +89,7 @@ export default function Home() {
 
   const dealerValue = getHandValue(dealerHand);
 
-  const oddsPlayerBust = getChanceOfPlayerBustIfHit({ playerHand, numCardsInDrawPile });
+
 
   const isBelowMd = useMediaQuery((theme) => theme.breakpoints.down("md"));
   const isBelowXl = useMediaQuery((theme) => theme.breakpoints.down("xl"));
@@ -92,7 +98,7 @@ export default function Home() {
     return getChanceOfOutcomes({
       dealerHand,
       playerHand,
-      numCardsInDrawPile
+      numCardsInDrawPile,
     });
   }, [dealerHand, playerHand, numCardsInDrawPile]);
 
@@ -286,7 +292,7 @@ export default function Home() {
       <Box alignContent="center" alignItems="center" justifyContent="center" textAlign="center">
         {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
           <Typography variant="caption" component="div">
-            {outcomeChance.dealerBust}% Chance Dealer Busts
+            {formatPercent(outcomeChance.dealerBust)} Chance Dealer Busts
           </Typography>
         )}
         <Hand
@@ -305,12 +311,27 @@ export default function Home() {
       <Box alignContent="center" alignItems="center" justifyContent="center" textAlign="center">
         {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
           <Typography variant="caption" component="div">
-            {oddsPlayerBust}% Chance to Bust on Next Card
+            {formatPercent(outcomeChance.playerBust)} Chance to Bust on Next Card
           </Typography>
         )}
         {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
           <Typography variant="caption" component="div">
-            {outcomeChance.playerWin}% to Win with This Hand
+            Stand has {formatPercent(outcomeChance.playerWin)} to win
+          </Typography>
+        )}
+        {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
+          <Typography variant="caption" component="div">
+            EV of Standing: {formatEv(outcomeChance.expectedValueStanding)}
+          </Typography>
+        )}
+        {Number.isFinite(outcomeChance.expectedValueHitting) && Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
+          <Typography variant="caption" component="div">
+            EV of Hitting: {formatEv(outcomeChance.expectedValueHitting as number)}
+          </Typography>
+        )}
+        {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
+          <Typography variant="caption" component="div" fontWeight="bold">
+            {outcomeChance.shouldStand ? "Stand" : "Hit"}
           </Typography>
         )}
         <Hand
