@@ -108,6 +108,8 @@ interface Outcomes {
   expectedValueStanding: number;
   expectedValueHitting: number | null;
   shouldStand: boolean;
+  shouldInsurance: boolean;
+  shouldSplit: boolean;
 }
 
 export function getChanceOfOutcomes({
@@ -117,10 +119,10 @@ export function getChanceOfOutcomes({
   hitSoft17 = false
 }: GetPlayerOutcomesingProps): Outcomes {
   if (playerHand.length < 2 || !dealerHand.length) {
-    return { dealerBust: 0, playerWin: 0, playerLose: 0, push: 0, expectedValueStanding: 0, expectedValueHitting: 0, shouldStand: false, playerBust: 0 };
+    return { dealerBust: 0, playerWin: 0, playerLose: 0, push: 0, expectedValueStanding: 0, expectedValueHitting: 0, shouldStand: false, playerBust: 0, shouldInsurance: false, shouldSplit: false };
   }
   if (getHandValue(playerHand) > 21) {
-    return { dealerBust: 0, playerWin: 0, playerLose: 100, push: 0, expectedValueStanding: -1, expectedValueHitting: -1, shouldStand: false, playerBust: 100 };
+    return { dealerBust: 0, playerWin: 0, playerLose: 100, push: 0, expectedValueStanding: -1, expectedValueHitting: -1, shouldStand: false, playerBust: 100, shouldInsurance: false, shouldSplit: false };
   }
   const playerHandValue = getHandValue(playerHand);
 
@@ -135,6 +137,8 @@ export function getChanceOfOutcomes({
   const push = dealerOutcomes.push / totalOutcomes;
 
   const expectedValueStanding = playerWin - playerLose;
+  const shouldSplit = getShouldSplit(playerHand, dealerHand[0], numCardsInDrawPile)
+
   if (playerHandValue <= 11) {
     return {
       dealerBust,
@@ -144,7 +148,9 @@ export function getChanceOfOutcomes({
       push,
       expectedValueStanding,
       expectedValueHitting: null,
-      shouldStand: false
+      shouldStand: false,
+      shouldInsurance: false,
+      shouldSplit
     };
   }
 
@@ -166,7 +172,9 @@ export function getChanceOfOutcomes({
     push,
     expectedValueStanding,
     expectedValueHitting,
-    shouldStand
+    shouldStand,
+    shouldInsurance: false,
+    shouldSplit
   };
 }
 
@@ -239,7 +247,7 @@ function getExpectedValueIfHitting({
   playerHandValue,
   hitSoft17 = false,
   depth = 0, // Track recursion depth
-  MAX_DEPTH = 5 // Maximum allowed recursion depth
+  MAX_DEPTH = 6 // Maximum allowed recursion depth
 }: GetPlayerOutcomesingProps & { playerHandValue: number, depth?: number, MAX_DEPTH?: number }): number {
   const totalCardsInDrawPile = Object.values(numCardsInDrawPile).reduce((sum, count) => sum + count, 0);
 
@@ -269,7 +277,7 @@ function getExpectedValueIfHitting({
     if (newPlayerHandValue > 21) {
       return expectedValue + probability * -1;
     }
-    if (newPlayerHandValue === 21 || newPlayerHandValue === 20 || newPlayerHandValue === 19) {
+    if (newPlayerHandValue === 21) {
       return expectedValue + probability * 1;
     }
 
@@ -328,4 +336,52 @@ function getExpectedValueIfHitting({
 
     return expectedValue + probability * evOptimal;
   }, 0);
+}
+
+
+function getShouldSplit(playerHand: Array<string>, dealerUpCard: string, numCardsInDrawPile: CardsInDrawPile): boolean {
+  if (playerHand.length !== 2 || playerHand[0] !== playerHand[1]) {
+    // Can only split if there are exactly two cards of the same rank
+    return false;
+  }
+
+  const cardRank = playerHand[0]; // Both cards are the same
+  const numCardsOfRank = numCardsInDrawPile[`num${cardRank}s` as keyof CardsInDrawPile] || 0;
+
+  if (numCardsOfRank < 2) {
+    // Cannot split if there are not enough cards left in the draw pile for splitting
+    return false;
+  }
+
+  // Example splitting strategy based on common rules
+  switch (cardRank) {
+    case "A":
+      // Always split Aces
+      return true;
+    case "8":
+      // Always split 8s
+      return true;
+    case "10":
+    case "J":
+    case "Q":
+    case "K":
+      // Never split 10s or face cards
+      return false;
+    default:
+      // For other ranks, consider dealer's up card and basic strategy
+      const dealerValue = parseInt(dealerUpCard) || (["J", "Q", "K"].includes(dealerUpCard) ? 10 : dealerUpCard === "A" ? 11 : 0);
+      if (cardRank === "2" || cardRank === "3") {
+        return dealerValue >= 4 && dealerValue <= 7;
+      }
+      if (cardRank === "6") {
+        return dealerValue >= 3 && dealerValue <= 6;
+      }
+      if (cardRank === "7") {
+        return dealerValue >= 2 && dealerValue <= 7;
+      }
+      if (cardRank === "9") {
+        return dealerValue !== 7 && dealerValue < 10;
+      }
+      return false;
+  }
 }

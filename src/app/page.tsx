@@ -71,9 +71,9 @@ export default function Home() {
   const [otherCards, setOtherCards] = useState<Array<string>>([]);
 
   const numOfEachCard = totalDecks * 4;
-  const usedCards = [...dealerHand, ...playerHand, ...otherCards, ...discardPile];
+  const usedCards = useMemo(() => [...dealerHand, ...playerHand, ...otherCards, ...discardPile], [dealerHand, playerHand, otherCards, discardPile]);
 
-  const numCardsInDrawPile: CardsInDrawPile = CARDS.reduce<CardsInDrawPile>(
+  const numCardsInDrawPile: CardsInDrawPile = useMemo(() => CARDS.reduce<CardsInDrawPile>(
     (acc, card) => {
       const key = `num${card}s` as keyof CardsInDrawPile;
       acc[key] = numOfEachCard - usedCards.filter((c) => c === card).length;
@@ -81,13 +81,25 @@ export default function Home() {
     }, {
     num2s: 0, num3s: 0, num4s: 0, num5s: 0, num6s: 0, num7s: 0, num8s: 0,
     num9s: 0, num10s: 0, numJs: 0, numQs: 0, numKs: 0, numAs: 0
-  });
+  }), [usedCards, numOfEachCard]);
+
+  const numCardsUsed: CardsInDrawPile = useMemo(() => CARDS.reduce<CardsInDrawPile>(
+    (acc, card) => {
+      const key = `num${card}s` as keyof CardsInDrawPile;
+      acc[key] = usedCards.filter((c) => c === card).length;
+      return acc;
+    }, {
+    num2s: 0, num3s: 0, num4s: 0, num5s: 0, num6s: 0, num7s: 0, num8s: 0,
+    num9s: 0, num10s: 0, numJs: 0, numQs: 0, numKs: 0, numAs: 0
+  }), [usedCards]);
 
   const { num2s, num3s, num4s, num5s, num6s, num10s, numJs, numQs, numKs, numAs } = numCardsInDrawPile;
 
-  const hiLowCount = num2s + num3s + num4s + num5s + num6s - num10s - numJs - numQs - numKs - numAs;
+  const hiLowCount = numCardsUsed.num2s + numCardsUsed.num3s + numCardsUsed.num4s + numCardsUsed.num5s + numCardsUsed.num6s
+    - numCardsUsed.num10s - numCardsUsed.numJs - numCardsUsed.numQs - numCardsUsed.numKs - numCardsUsed.numAs;
 
   const dealerValue = getHandValue(dealerHand);
+  const playerHandValue = getHandValue(playerHand);
 
 
 
@@ -277,6 +289,33 @@ export default function Home() {
   );
 
 
+  const feedbackJsx = useMemo(() => {
+    if (playerHand.length <= 1 || !dealerHand.length) {
+      return null;
+    }
+
+    let color = "success"
+    let text = "Hit"
+
+
+    if (playerHandValue > 21) {
+      color = "inherit";
+      text = "- Bust -";
+    } else if (outcomeChance.shouldSplit) {
+      color = "primary";
+      text = "Split";
+    } else if (outcomeChance.shouldStand) {
+      color = "error";
+      text = "Stand";
+    }
+
+    return (
+      <Typography component="div" color={color} fontWeight="bold">
+        {text}
+      </Typography>
+    );
+  }, [outcomeChance.expectedValueHitting, outcomeChance.expectedValueStanding])
+
   const cardsInPlayJsx = (
     <Box
       height="100%"
@@ -303,7 +342,7 @@ export default function Home() {
           }}
         />
         {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
-          <Typography variant="caption" component="div">
+          <Typography component="div">
             {dealerValue}
           </Typography>
         )}
@@ -325,13 +364,8 @@ export default function Home() {
           </Typography>
         )}
         {Number.isFinite(outcomeChance.expectedValueHitting) && Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
-          <Typography variant="caption" component="div">
+          <Typography variant="caption" component="div" >
             EV of Hitting: {formatEv(outcomeChance.expectedValueHitting as number)}
-          </Typography>
-        )}
-        {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
-          <Typography variant="caption" component="div" fontWeight="bold">
-            {outcomeChance.shouldStand ? "Stand" : "Hit"}
           </Typography>
         )}
         <Hand
@@ -342,10 +376,11 @@ export default function Home() {
           }}
         />
         {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
-          <Typography variant="caption" component="div">
-            {getHandValue(playerHand)}
+          <Typography component="div">
+            {playerHandValue}
           </Typography>
         )}
+        {feedbackJsx}
       </Box>
       <Box position="absolute" right={10} bottom={10}>
         <Button
