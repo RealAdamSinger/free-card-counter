@@ -1,11 +1,8 @@
-/* Reset margins and paddings globally */
-html, body {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    /* background-color: #35654d ; */
+* {
+  box-sizing: border-box;
 }
 
-* {
-    box-sizing: inherit;
+body {
+  margin: 0;
+  padding: 0;
 }
