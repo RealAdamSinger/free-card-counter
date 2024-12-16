@@ -247,7 +247,7 @@ function getExpectedValueIfHitting({
   playerHandValue,
   hitSoft17 = false,
   depth = 0, // Track recursion depth
-  MAX_DEPTH = 6 // Maximum allowed recursion depth
+  MAX_DEPTH = 3 // Maximum allowed recursion depth
 }: GetPlayerOutcomesingProps & { playerHandValue: number, depth?: number, MAX_DEPTH?: number }): number {
   const totalCardsInDrawPile = Object.values(numCardsInDrawPile).reduce((sum, count) => sum + count, 0);
 

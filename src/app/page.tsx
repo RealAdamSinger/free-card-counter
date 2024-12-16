@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ContentDrawerLayout } from "@/components/content-drawer/content-drawer";
 import { FlexContainer, FlexItem } from "@/components/flex-content/flex-content";
 import { getChanceOfOutcomes, getHandValue } from "./math";
@@ -19,6 +19,7 @@ import {
   CardActionArea,
   CardContent,
   Container,
+  Divider,
   FormControl,
   FormControlLabel,
   FormLabel,
@@ -93,10 +94,13 @@ export default function Home() {
     num9s: 0, num10s: 0, numJs: 0, numQs: 0, numKs: 0, numAs: 0
   }), [usedCards]);
 
-  const { num2s, num3s, num4s, num5s, num6s, num10s, numJs, numQs, numKs, numAs } = numCardsInDrawPile;
-
   const hiLowCount = numCardsUsed.num2s + numCardsUsed.num3s + numCardsUsed.num4s + numCardsUsed.num5s + numCardsUsed.num6s
     - numCardsUsed.num10s - numCardsUsed.numJs - numCardsUsed.numQs - numCardsUsed.numKs - numCardsUsed.numAs;
+
+  const Omega2Count = numCardsUsed.num2s + numCardsUsed.num3s * numCardsUsed.num7s
+    + 2 * (numCardsUsed.num4s + numCardsUsed.num5s + numCardsUsed.num6s)
+    - numCardsUsed.num9s
+    - 2 * (numCardsUsed.num10s + numCardsUsed.numJs + numCardsUsed.numQs + numCardsUsed.numKs + numCardsUsed.numAs);
 
   const dealerValue = getHandValue(dealerHand);
   const playerHandValue = getHandValue(playerHand);
@@ -106,12 +110,18 @@ export default function Home() {
   const isBelowMd = useMediaQuery((theme) => theme.breakpoints.down("md"));
   const isBelowXl = useMediaQuery((theme) => theme.breakpoints.down("xl"));
 
+  const cachedOutcomes = useRef<ReturnType<typeof getChanceOfOutcomes>>({} as any);
+
   const outcomeChance = useMemo(() => {
-    return getChanceOfOutcomes({
-      dealerHand,
-      playerHand,
-      numCardsInDrawPile,
-    });
+    if (dealerHand.length <= 1) {
+      cachedOutcomes.current = getChanceOfOutcomes({
+        dealerHand,
+        playerHand,
+        numCardsInDrawPile,
+      });
+    }
+
+    return cachedOutcomes.current;
   }, [dealerHand, playerHand, numCardsInDrawPile]);
 
   const appBarJsx = (
@@ -136,6 +146,41 @@ export default function Home() {
     </AppBar>
   )
 
+  const trueCount = hiLowCount / totalDecks;
+  const trueCountText = useMemo(() => {
+    if (trueCount >= 2) {
+      return `+${trueCount.toFixed(2)} 🔥🔥`;
+    } else if (trueCount > 1) {
+      return `+${trueCount.toFixed(2)} 🔥`;
+    } else if (trueCount > .5) {
+      return `+${trueCount.toFixed(2)} 👍🏻`;
+    } else if (trueCount <= -2) {
+      return `${trueCount.toFixed(2)} 💩💩`;
+    } else if (trueCount < -1) {
+      return `${trueCount.toFixed(2)} 💩`;
+    } else if (trueCount < -.5) {
+      return `${trueCount.toFixed(2)} 👎🏻`;
+    }
+    return trueCount.toFixed(2);
+  }, [trueCount]);
+
+  const Omega2CountText = useMemo(() => {
+    if (Omega2Count >= 2) {
+      return `+${Omega2Count.toFixed(2)} 🔥🔥`;
+    } else if (Omega2Count > 1) {
+      return `+${Omega2Count.toFixed(2)} 🔥`;
+    } else if (Omega2Count > .5) {
+      return `+${Omega2Count.toFixed(2)} 👍🏻`;
+    } else if (Omega2Count <= -2) {
+      return `${Omega2Count.toFixed(2)} 💩💩`;
+    } else if (Omega2Count < -1) {
+      return `${Omega2Count.toFixed(2)} 💩`;
+    } else if (Omega2Count < -.5) {
+      return `${Omega2Count.toFixed(2)} 👎🏻`;
+    }
+    return Omega2Count.toFixed(2);
+  }, [Omega2Count]);
+
   const drawerJsx = (
     <Grid2 container size={{ xs: 12 }} spacing={2} p={2}>
       <Grid2 size={{ xs: 12 }}>
@@ -147,8 +192,21 @@ export default function Home() {
         Count: {hiLowCount}
       </Grid2>
       <Grid2 size={{ xs: 12 }}>
-        True Count: {hiLowCount / totalDecks}
+        True Count: {trueCountText}
       </Grid2>
+      <Divider sx={{ width: "100%" }} />
+      <Grid2 size={{ xs: 12 }}>
+        <Typography variant="h6" component="div">
+          Omega II
+        </Typography>
+      </Grid2>
+      <Grid2 size={{ xs: 12 }}>
+        Count: {Omega2Count}
+      </Grid2>
+      <Grid2 size={{ xs: 12 }}>
+        True Count: {Omega2CountText}
+      </Grid2>
+      <Divider sx={{ width: "100%" }} />
       <Grid2 container size={{ xs: 12 }}>
         <Grid2 size={{ xs: 4 }}>
           <Typography variant="h6" component="div">
