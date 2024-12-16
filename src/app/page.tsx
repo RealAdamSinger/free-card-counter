@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ContentDrawerLayout } from "@/components/content-drawer/content-drawer";
 import { FlexContainer, FlexItem } from "@/components/flex-content/flex-content";
-import { getChanceOfOutcomes, getHandValue, Outcomes } from "./math";
+import { getChanceOfOutcomes,  Outcomes } from "./math";
 
 import RemoveIcon from '@mui/icons-material/Remove';
 import CasinoIcon from '@mui/icons-material/Casino';
@@ -32,6 +32,7 @@ import {
   Typography,
   useMediaQuery
 } from "@mui/material";
+import { getHandValue } from "./utils";
 
 function formatPercent(num: number) {
   return `${Math.round(num * 100)}%`;
@@ -110,7 +111,8 @@ export default function Home() {
   const isBelowMd = useMediaQuery((theme) => theme.breakpoints.down("md"));
   const isBelowXl = useMediaQuery((theme) => theme.breakpoints.down("xl"));
 
-  const cachedOutcomes = useRef<Outcomes>({
+
+  const [outcomeChance, setOutcomeChance] = useState<Outcomes>({
     expectedValueHitting: 0,
     expectedValueStanding: 0,
     playerBust: 0,
@@ -125,16 +127,19 @@ export default function Home() {
     shouldInsurance: false,
   });
 
-  const outcomeChance = useMemo(() => {
-    if (dealerHand.length <= 1) {
-      cachedOutcomes.current = getChanceOfOutcomes({
-        dealerHand,
-        playerHand,
-        numCardsInDrawPile,
-      });
-    }
+  useEffect(() => {
+    const fetchOutcomeChance = async () => {
+      if (dealerHand.length <= 1) {
+        const outcomes = await getChanceOfOutcomes({
+          dealerHand,
+          playerHand,
+          numCardsInDrawPile,
+        });
+        setOutcomeChance(outcomes);
+      }
+    };
 
-    return cachedOutcomes.current;
+    fetchOutcomeChance();
   }, [dealerHand, playerHand, numCardsInDrawPile]);
 
   const appBarJsx = (

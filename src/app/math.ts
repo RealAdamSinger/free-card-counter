@@ -1,5 +1,6 @@
-// array of cards
-const CARDS: Array<string> = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+import { CARDS, consolodate10sInDrawPile, getDealerOutcomes, getHandValue } from "./utils";
+
+
 type CardsInDrawPile = {
   num2s: number;
   num3s: number;
@@ -15,54 +16,6 @@ type CardsInDrawPile = {
   numKs: number;
   numAs: number;
 };
-
-interface GetChanceOfDealerBustProps {
-  dealerHand: Array<string>;
-  numCardsInDrawPile: CardsInDrawPile;
-  hitSoft17?: boolean;
-}
-
-function consolodate10sInDrawPile(numCardsInDrawPile: CardsInDrawPile): CardsInDrawPile {
-  const num10s = numCardsInDrawPile.num10s + numCardsInDrawPile.numJs + numCardsInDrawPile.numQs + numCardsInDrawPile.numKs;
-  return {
-    ...numCardsInDrawPile,
-    num10s,
-    numJs: 0,
-    numQs: 0,
-    numKs: 0
-  };
-}
-
-export function getHandValue(hand: Array<string>): number {
-  const numAces = hand.filter(card => card === "A").length;
-  let totalValue = hand.reduce((acc, card) => {
-    if (card === "J" || card === "Q" || card === "K") {
-      return acc + 10;
-    } else if (card === "A") {
-      return acc + 11;
-    } else {
-      return acc + parseInt(card);
-    }
-  }, 0);
-
-  // Adjust for Aces
-  let acesAdjusted = numAces;
-  while (totalValue > 21 && acesAdjusted > 0) {
-    totalValue -= 10; // Convert an Ace from 11 to 1
-    acesAdjusted--;
-  }
-
-  return totalValue;
-}
-
-
-export function checkForBlackjack(hand: Array<string>): boolean {
-  if (hand.length !== 2) return false;
-  if (hand.includes("A") && (hand.includes("10") || hand.includes("J") || hand.includes("Q") || hand.includes("K"))) {
-    return true;
-  }
-  return false;
-}
 
 
 interface GetPlayerOutcomesIfHitProps {
@@ -114,12 +67,12 @@ export interface Outcomes {
   shouldDouble: boolean;
 }
 
-export function getChanceOfOutcomes({
+export async function getChanceOfOutcomes({
   dealerHand,
   playerHand,
   numCardsInDrawPile: numCardsInDrawPileProp,
   hitSoft17 = false
-}: GetPlayerOutcomesingProps): Outcomes {
+}: GetPlayerOutcomesingProps): Promise<Outcomes> {
   if (playerHand.length < 2 || !dealerHand.length) {
     return { dealerBust: 0, playerWin: 0, playerLose: 0, push: 0, expectedValueStanding: 0, expectedValueHitting: 0, shouldStand: false, playerBust: 0, shouldInsurance: false, shouldSplit: false, shouldDouble: false, expectedValueOfDoubleDown: 0 };
   }
@@ -139,8 +92,15 @@ export function getChanceOfOutcomes({
   const push = dealerOutcomes.push / totalOutcomes;
 
   const expectedValueStanding = playerWin - playerLose;
-  const shouldSplit = getShouldSplit(playerHand, dealerHand[0], numCardsInDrawPile)
+  const shouldSplit = getShouldSplit(playerHand, dealerHand[0], numCardsInDrawPile);
 
+  const expectedValueHitting = await getExpectedValueIfHitting({
+    playerHand,
+    dealerHand,
+    numCardsInDrawPile,
+    playerHandValue,
+    hitSoft17
+  });
 
   const expectedValueOfDoubleDown = playerHand.length === 2 ? getExpectedValueOfDoubleDown({
     playerHand,
@@ -149,215 +109,68 @@ export function getChanceOfOutcomes({
     hitSoft17
   }) : null;
 
-  // if (playerHandValue <= 11) {
-  //   return {
-  //     dealerBust,
-  //     playerBust: 0,
-  //     playerWin,
-  //     playerLose,
-  //     push,
-  //     expectedValueStanding,
-  //     expectedValueOfDoubleDown,
-  //     expectedValueHitting: null,
-  //     shouldStand: false,
-  //     shouldInsurance: false,
-  //     shouldSplit,
-  //     shouldDouble: expectedValueOfDoubleDown > expectedValueStanding
-  //   };
-  // }
+  const shouldDouble = playerHand.length === 2 && expectedValueOfDoubleDown !== null && expectedValueOfDoubleDown > expectedValueHitting && expectedValueOfDoubleDown > expectedValueStanding;
 
-  const expectedValueHitting = getExpectedValueIfHitting({
-    dealerHand,
-    playerHand,
-    playerHandValue,
-    numCardsInDrawPile
-  });
-
-
-  const shouldDouble = expectedValueOfDoubleDown !== null ? (expectedValueOfDoubleDown > expectedValueStanding && expectedValueOfDoubleDown > expectedValueHitting) : false;
+  const playerBust = getChancePlayerBustOnHit({ playerHand, numCardsInDrawPile }) * 100;
 
   const shouldStand = expectedValueStanding > expectedValueHitting;
+  const shouldInsurance = dealerHand[0] === "A" && playerHand.length === 2;
 
   return {
-    dealerBust,
-    playerBust: getChancePlayerBustOnHit({ playerHand, numCardsInDrawPile }),
-    playerWin,
-    playerLose,
-    push,
+    dealerBust: dealerBust * 100,
+    playerWin: playerWin * 100,
+    playerLose: playerLose * 100,
+    push: push * 100,
     expectedValueStanding,
     expectedValueHitting,
     expectedValueOfDoubleDown,
     shouldStand,
-    shouldInsurance: false,
+    playerBust,
+    shouldInsurance,
     shouldSplit,
     shouldDouble
   };
 }
 
-function getDealerOutcomes({
-  dealerHand,
-  playerHandValue,
-  playerHand,
-  numCardsInDrawPile,
-  hitSoft17 = false
-}: GetChanceOfDealerBustProps & {
-  playerHandValue: number,
-  playerHand: Array<string>
-}): { bust: number, win: number, lose: number, push: number } {
-
-  const totalCardsInDrawPile = Object.values(numCardsInDrawPile).reduce((sum, count) => sum + count, 0);
-  if (totalCardsInDrawPile === 0) {
-    throw new Error("Draw pile is empty.");
-  }
-
-  const filteredCards = CARDS.filter(card => numCardsInDrawPile[`num${card}s` as keyof CardsInDrawPile] > 0);
-
-  return filteredCards.reduce((acc, card) => {
-    const numCards = numCardsInDrawPile[`num${card}s` as keyof CardsInDrawPile] || 0;
-    const probability = numCards / totalCardsInDrawPile;
-
-    const dealerHandValue = getHandValue(dealerHand);
-    const isSoft17 = dealerHandValue === 17 && dealerHand.includes('A'); // Assuming 'A' for Ace
-
-    if (dealerHandValue > 21) {
-      return { ...acc, bust: acc.bust + probability };
-    } else if (dealerHandValue >= 17 && (!isSoft17 || !hitSoft17)) {
-      if (dealerHandValue > playerHandValue) {
-        return { ...acc, win: acc.win + probability };
-      } else if (dealerHandValue < playerHandValue) {
-        return { ...acc, lose: acc.lose + probability };
-      } else {
-        // check if dealer has BJ and player does not
-        if (checkForBlackjack(dealerHand) && (!dealerHand || !checkForBlackjack(playerHand))) {
-          return { ...acc, win: acc.win + probability };
-        }
-        return { ...acc, push: acc.push + probability };
-      }
-    }
-
-    // dealerHandValue < 17 or isSoft17 with hitSoft17 true
-    const nextDealerHand = [...dealerHand, card];
-    const nextNumCardsInDrawPile = { ...numCardsInDrawPile, [`num${card}s`]: numCards - 1 };
-
-    const outcomes = getDealerOutcomes({
-      dealerHand: nextDealerHand,
-      playerHandValue,
-      playerHand,
-      numCardsInDrawPile: nextNumCardsInDrawPile,
-      hitSoft17
-    });
-
-    return {
-      bust: acc.bust + outcomes.bust * probability,
-      win: acc.win + outcomes.win * probability,
-      lose: acc.lose + outcomes.lose * probability,
-      push: acc.push + outcomes.push * probability
-    };
-  }, { bust: 0, win: 0, lose: 0, push: 0 });
-}
-
-function getExpectedValueIfHitting({
+export async function getExpectedValueIfHitting({
   playerHand,
   numCardsInDrawPile,
   dealerHand,
   playerHandValue,
   hitSoft17 = false,
-  depth = 0, // Track recursion depth
-  MAX_DEPTH = 2 // Maximum allowed recursion depth
-}: GetPlayerOutcomesingProps & { playerHandValue: number, depth?: number, MAX_DEPTH?: number }): number {
-  const totalCardsInDrawPile = Object.values(numCardsInDrawPile).reduce((sum, count) => sum + count, 0);
+  depth = 0,
+  MAX_DEPTH = 2
+}: GetPlayerOutcomesingProps & { playerHandValue: number, depth?: number, MAX_DEPTH?: number }): Promise<number> {
+  // Create a new worker instance
+  const worker = new Worker(new URL('./expectedValue.worker.ts', import.meta.url));
 
-  if (totalCardsInDrawPile === 0) {
-    throw new Error("Draw pile is empty.");
-  }
+  return new Promise((resolve, reject) => {
+    worker.onmessage = (e: MessageEvent<number | { error: string }>) => {
+      worker.terminate(); // Clean up the worker
+      if (typeof e.data === 'number') {
+        resolve(e.data);
+      } else {
+        reject(new Error(e.data.error));
+      }
+    };
 
-  // Consolidate card values to iterate
-  const consolidatedDrawPile = consolodate10sInDrawPile(numCardsInDrawPile);
+    worker.onerror = (error) => {
+      worker.terminate(); // Clean up the worker
+      reject(error);
+    };
 
-  // Iterate over all possible cards
-  return CARDS.reduce((expectedValue, card) => {
-    const numCards = consolidatedDrawPile[`num${card}s` as keyof CardsInDrawPile] || 0;
-
-    // Skip if no cards of this type left
-    if (numCards === 0) {
-      return expectedValue;
-    }
-
-    const probability = numCards / totalCardsInDrawPile;
-    // skip if probability is less than 5%
-    if (probability < 0.01) {
-      return expectedValue;
-    }
-
-    // Simulate player's hand after hitting
-    const newPlayerHand = [...playerHand, card];
-    const newPlayerHandValue = getHandValue(newPlayerHand);
-
-    // If the player busts, their EV is -1 for that draw
-    if (newPlayerHandValue > 21) {
-      return expectedValue + probability * -1;
-    }
-    if (newPlayerHandValue === 21) {
-      return expectedValue + probability * 1;
-    }
-
-    // If MAX_DEPTH is reached, stop recursion and use stand EV only
-    if (depth >= MAX_DEPTH) {
-      const remainingDrawPile = { ...consolidatedDrawPile, [`num${card}s`]: numCards - 1 };
-      const dealerOutcomes = getDealerOutcomes({
-        dealerHand,
-        playerHandValue: newPlayerHandValue,
-        playerHand: newPlayerHand,
-        numCardsInDrawPile: remainingDrawPile,
-        hitSoft17
-      });
-
-      const totalOutcomes = dealerOutcomes.bust + dealerOutcomes.win + dealerOutcomes.lose + dealerOutcomes.push;
-      const playerWinProb = (dealerOutcomes.bust + dealerOutcomes.lose) / totalOutcomes;
-      const playerLoseProb = dealerOutcomes.win / totalOutcomes;
-      const pushProb = dealerOutcomes.push / totalOutcomes;
-
-      const evStanding = playerWinProb * 1 + pushProb * 0 + playerLoseProb * -1;
-      return expectedValue + probability * evStanding;
-    }
-
-    // If the player does not bust, calculate EV for standing and hitting again
-    const remainingDrawPile = { ...consolidatedDrawPile, [`num${card}s`]: numCards - 1 };
-
-    // EV if the player stands now (dealer outcomes)
-    const dealerOutcomes = getDealerOutcomes({
+    // Send the data to the worker
+    worker.postMessage({
+      playerHand,
+      numCardsInDrawPile,
       dealerHand,
-      playerHandValue: newPlayerHandValue,
-      playerHand: newPlayerHand,
-      numCardsInDrawPile: remainingDrawPile,
-      hitSoft17
-    });
-
-    const totalOutcomes = dealerOutcomes.bust + dealerOutcomes.win + dealerOutcomes.lose + dealerOutcomes.push;
-    const playerWinProb = (dealerOutcomes.bust + dealerOutcomes.lose) / totalOutcomes;
-    const playerLoseProb = dealerOutcomes.win / totalOutcomes;
-    const pushProb = dealerOutcomes.push / totalOutcomes;
-
-    const evStanding = playerWinProb * 1 + pushProb * 0 + playerLoseProb * -1;
-
-    // EV if the player decides to hit again
-    const evHittingAgain = getExpectedValueIfHitting({
-      playerHand: newPlayerHand,
-      dealerHand,
-      numCardsInDrawPile: remainingDrawPile,
-      playerHandValue: newPlayerHandValue,
+      playerHandValue,
       hitSoft17,
-      depth: depth + 1, // Increment depth
+      depth,
       MAX_DEPTH
     });
-
-    // Optimal EV: max of standing or hitting again
-    const evOptimal = Math.max(evStanding, evHittingAgain);
-
-    return expectedValue + probability * evOptimal;
-  }, 0);
+  });
 }
-
 
 function getShouldSplit(playerHand: Array<string>, dealerUpCard: string, numCardsInDrawPile: CardsInDrawPile): boolean {
   if (playerHand.length !== 2 || playerHand[0] !== playerHand[1]) {

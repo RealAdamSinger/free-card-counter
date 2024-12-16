@@ -4,7 +4,7 @@
   "private": true,
   "homepage": "https://RealAdamSinger.github.io/free-card-counter",
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "start": "next start",
     "lint": "next lint",
     "build": "next build",
@@ -27,6 +27,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.1.0",
     "gh-pages": "^6.2.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "worker-loader": "^3.0.8"
   }
 }
