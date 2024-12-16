@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { ContentDrawerLayout } from "@/components/content-drawer/content-drawer";
 import { FlexContainer, FlexItem } from "@/components/flex-content/flex-content";
-import { getChanceOfOutcomes, getHandValue } from "./math";
+import { getChanceOfOutcomes, getHandValue, Outcomes } from "./math";
 
 import RemoveIcon from '@mui/icons-material/Remove';
 import CasinoIcon from '@mui/icons-material/Casino';
@@ -110,7 +110,20 @@ export default function Home() {
   const isBelowMd = useMediaQuery((theme) => theme.breakpoints.down("md"));
   const isBelowXl = useMediaQuery((theme) => theme.breakpoints.down("xl"));
 
-  const cachedOutcomes = useRef<ReturnType<typeof getChanceOfOutcomes>>({} as any);
+  const cachedOutcomes = useRef<Outcomes>({
+    expectedValueHitting: 0,
+    expectedValueStanding: 0,
+    playerBust: 0,
+    dealerBust: 0,
+    playerWin: 0,
+    shouldDouble: false,
+    shouldSplit: false,
+    shouldStand: false,
+    expectedValueOfDoubleDown: 0,
+    playerLose: 0,
+    push: 0,
+    shouldInsurance: false,
+  });
 
   const outcomeChance = useMemo(() => {
     if (dealerHand.length <= 1) {
@@ -164,21 +177,22 @@ export default function Home() {
     return trueCount.toFixed(2);
   }, [trueCount]);
 
-  const Omega2CountText = useMemo(() => {
+  const Omega2TrueCount = Omega2Count / totalDecks;
+  const Omega2TrueCountText = useMemo(() => {
     if (Omega2Count >= 2) {
-      return `+${Omega2Count.toFixed(2)} 🔥🔥`;
-    } else if (Omega2Count > 1) {
-      return `+${Omega2Count.toFixed(2)} 🔥`;
-    } else if (Omega2Count > .5) {
-      return `+${Omega2Count.toFixed(2)} 👍🏻`;
-    } else if (Omega2Count <= -2) {
-      return `${Omega2Count.toFixed(2)} 💩💩`;
-    } else if (Omega2Count < -1) {
-      return `${Omega2Count.toFixed(2)} 💩`;
-    } else if (Omega2Count < -.5) {
-      return `${Omega2Count.toFixed(2)} 👎🏻`;
+      return `+${Omega2TrueCount.toFixed(2)} 🔥🔥`;
+    } else if (Omega2TrueCount > 1) {
+      return `+${Omega2TrueCount.toFixed(2)} 🔥`;
+    } else if (Omega2TrueCount > .5) {
+      return `+${Omega2TrueCount.toFixed(2)} 👍🏻`;
+    } else if (Omega2TrueCount <= -2) {
+      return `${Omega2TrueCount.toFixed(2)} 💩💩`;
+    } else if (Omega2TrueCount < -1) {
+      return `${Omega2TrueCount.toFixed(2)} 💩`;
+    } else if (Omega2TrueCount < -.5) {
+      return `${Omega2TrueCount.toFixed(2)} 👎🏻`;
     }
-    return Omega2Count.toFixed(2);
+    return Omega2TrueCount.toFixed(2);
   }, [Omega2Count]);
 
   const drawerJsx = (
@@ -204,7 +218,7 @@ export default function Home() {
         Count: {Omega2Count}
       </Grid2>
       <Grid2 size={{ xs: 12 }}>
-        True Count: {Omega2CountText}
+        True Count: {Omega2TrueCountText}
       </Grid2>
       <Divider sx={{ width: "100%" }} />
       <Grid2 container size={{ xs: 12 }}>
@@ -272,8 +286,7 @@ export default function Home() {
                 </Typography>
               </Typography>
             )
-          }
-          )}
+          })}
         </Grid2>
       </Grid2>
     </Grid2>
@@ -353,12 +366,14 @@ export default function Home() {
     }
 
     let color = "success"
-    let text = "Hit"
-
+    let text = "Hit";
 
     if (playerHandValue > 21) {
       color = "inherit";
       text = "- Bust -";
+    } else if (outcomeChance.shouldDouble) {
+      color = "primary";
+      text = "Double";
     } else if (outcomeChance.shouldSplit) {
       color = "primary";
       text = "Split";
@@ -372,7 +387,7 @@ export default function Home() {
         {text}
       </Typography>
     );
-  }, [outcomeChance.expectedValueHitting, outcomeChance.expectedValueStanding])
+  }, [outcomeChance.expectedValueHitting, outcomeChance.expectedValueStanding, playerHandValue, outcomeChance.shouldDouble, outcomeChance.shouldSplit, outcomeChance.shouldStand]);
 
   const cardsInPlayJsx = (
     <Box
@@ -424,6 +439,11 @@ export default function Home() {
         {Number.isFinite(outcomeChance.expectedValueHitting) && Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
           <Typography variant="caption" component="div" >
             EV of Hitting: {formatEv(outcomeChance.expectedValueHitting as number)}
+          </Typography>
+        )}
+        {Number.isFinite(outcomeChance.expectedValueOfDoubleDown) && Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
+          <Typography variant="caption" component="div" >
+            EV of Double: {formatEv(outcomeChance.expectedValueOfDoubleDown as number)}
           </Typography>
         )}
         <Hand

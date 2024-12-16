@@ -99,7 +99,7 @@ interface GetPlayerOutcomesingProps {
   hitSoft17?: boolean;
 }
 
-interface Outcomes {
+export interface Outcomes {
   dealerBust: number;
   playerBust: number;
   playerWin: number;
@@ -107,9 +107,11 @@ interface Outcomes {
   push: number;
   expectedValueStanding: number;
   expectedValueHitting: number | null;
+  expectedValueOfDoubleDown: number | null
   shouldStand: boolean;
   shouldInsurance: boolean;
   shouldSplit: boolean;
+  shouldDouble: boolean;
 }
 
 export function getChanceOfOutcomes({
@@ -119,10 +121,10 @@ export function getChanceOfOutcomes({
   hitSoft17 = false
 }: GetPlayerOutcomesingProps): Outcomes {
   if (playerHand.length < 2 || !dealerHand.length) {
-    return { dealerBust: 0, playerWin: 0, playerLose: 0, push: 0, expectedValueStanding: 0, expectedValueHitting: 0, shouldStand: false, playerBust: 0, shouldInsurance: false, shouldSplit: false };
+    return { dealerBust: 0, playerWin: 0, playerLose: 0, push: 0, expectedValueStanding: 0, expectedValueHitting: 0, shouldStand: false, playerBust: 0, shouldInsurance: false, shouldSplit: false, shouldDouble: false, expectedValueOfDoubleDown: 0 };
   }
   if (getHandValue(playerHand) > 21) {
-    return { dealerBust: 0, playerWin: 0, playerLose: 100, push: 0, expectedValueStanding: -1, expectedValueHitting: -1, shouldStand: false, playerBust: 100, shouldInsurance: false, shouldSplit: false };
+    return { dealerBust: 0, playerWin: 0, playerLose: 100, push: 0, expectedValueStanding: -1, expectedValueHitting: -1, shouldStand: false, playerBust: 100, shouldInsurance: false, shouldSplit: false, shouldDouble: false, expectedValueOfDoubleDown: 0 };
   }
   const playerHandValue = getHandValue(playerHand);
 
@@ -139,20 +141,30 @@ export function getChanceOfOutcomes({
   const expectedValueStanding = playerWin - playerLose;
   const shouldSplit = getShouldSplit(playerHand, dealerHand[0], numCardsInDrawPile)
 
-  if (playerHandValue <= 11) {
-    return {
-      dealerBust,
-      playerBust: 0,
-      playerWin,
-      playerLose,
-      push,
-      expectedValueStanding,
-      expectedValueHitting: null,
-      shouldStand: false,
-      shouldInsurance: false,
-      shouldSplit
-    };
-  }
+
+  const expectedValueOfDoubleDown = playerHand.length === 2 ? getExpectedValueOfDoubleDown({
+    playerHand,
+    dealerHand,
+    numCardsInDrawPile,
+    hitSoft17
+  }) : null;
+
+  // if (playerHandValue <= 11) {
+  //   return {
+  //     dealerBust,
+  //     playerBust: 0,
+  //     playerWin,
+  //     playerLose,
+  //     push,
+  //     expectedValueStanding,
+  //     expectedValueOfDoubleDown,
+  //     expectedValueHitting: null,
+  //     shouldStand: false,
+  //     shouldInsurance: false,
+  //     shouldSplit,
+  //     shouldDouble: expectedValueOfDoubleDown > expectedValueStanding
+  //   };
+  // }
 
   const expectedValueHitting = getExpectedValueIfHitting({
     dealerHand,
@@ -161,6 +173,8 @@ export function getChanceOfOutcomes({
     numCardsInDrawPile
   });
 
+
+  const shouldDouble = expectedValueOfDoubleDown !== null ? (expectedValueOfDoubleDown > expectedValueStanding && expectedValueOfDoubleDown > expectedValueHitting) : false;
 
   const shouldStand = expectedValueStanding > expectedValueHitting;
 
@@ -172,9 +186,11 @@ export function getChanceOfOutcomes({
     push,
     expectedValueStanding,
     expectedValueHitting,
+    expectedValueOfDoubleDown,
     shouldStand,
     shouldInsurance: false,
-    shouldSplit
+    shouldSplit,
+    shouldDouble
   };
 }
 
@@ -247,7 +263,7 @@ function getExpectedValueIfHitting({
   playerHandValue,
   hitSoft17 = false,
   depth = 0, // Track recursion depth
-  MAX_DEPTH = 3 // Maximum allowed recursion depth
+  MAX_DEPTH = 2 // Maximum allowed recursion depth
 }: GetPlayerOutcomesingProps & { playerHandValue: number, depth?: number, MAX_DEPTH?: number }): number {
   const totalCardsInDrawPile = Object.values(numCardsInDrawPile).reduce((sum, count) => sum + count, 0);
 
@@ -268,6 +284,10 @@ function getExpectedValueIfHitting({
     }
 
     const probability = numCards / totalCardsInDrawPile;
+    // skip if probability is less than 5%
+    if (probability < 0.01) {
+      return expectedValue;
+    }
 
     // Simulate player's hand after hitting
     const newPlayerHand = [...playerHand, card];
@@ -384,4 +404,62 @@ function getShouldSplit(playerHand: Array<string>, dealerUpCard: string, numCard
       }
       return false;
   }
+}
+
+function getExpectedValueOfDoubleDown({
+  playerHand,
+  dealerHand,
+  numCardsInDrawPile,
+  hitSoft17 = false,
+}: GetPlayerOutcomesingProps): number {
+  const playerHandValue = getHandValue(playerHand);
+
+  // Consolidate the draw pile to simplify calculations
+  const consolidatedDrawPile = consolodate10sInDrawPile(numCardsInDrawPile);
+  const totalCardsInDrawPile = Object.values(consolidatedDrawPile).reduce((sum, count) => sum + count, 0);
+
+  if (totalCardsInDrawPile === 0) {
+    throw new Error("Draw pile is empty.");
+  }
+
+  return CARDS.reduce((expectedValue, card) => {
+    const numCards = consolidatedDrawPile[`num${card}s` as keyof CardsInDrawPile] || 0;
+
+    // Skip if no cards of this type left
+    if (numCards === 0) {
+      return expectedValue;
+    }
+
+    const probability = numCards / totalCardsInDrawPile;
+
+    // Calculate the new player hand value after drawing the card
+    const newPlayerHand = [...playerHand, card];
+    const newPlayerHandValue = getHandValue(newPlayerHand);
+
+    // If the new player hand value exceeds 21, it results in an immediate loss
+    if (newPlayerHandValue > 21) {
+      return expectedValue + probability * -2; // Double bet lost
+    }
+
+    // Calculate dealer outcomes after the player doubles down
+    const remainingDrawPile = { ...consolidatedDrawPile, [`num${card}s`]: numCards - 1 };
+    const dealerOutcomes = getDealerOutcomes({
+      dealerHand,
+      playerHandValue: newPlayerHandValue,
+      playerHand: newPlayerHand,
+      numCardsInDrawPile: remainingDrawPile,
+      hitSoft17,
+    });
+
+    const totalOutcomes = dealerOutcomes.bust + dealerOutcomes.win + dealerOutcomes.lose + dealerOutcomes.push;
+    const playerWinProb = (dealerOutcomes.bust + dealerOutcomes.lose) / totalOutcomes;
+    const playerLoseProb = dealerOutcomes.win / totalOutcomes;
+    const pushProb = dealerOutcomes.push / totalOutcomes;
+
+    // EV for doubling down: Double the bet on winning, lose double the bet on losing
+    const evDoubleDown = playerWinProb * 2 + pushProb * 0 + playerLoseProb * -2;
+
+    // Accumulate the EV weighted by the probability of drawing the card
+    return expectedValue + probability * evDoubleDown;
+  }, 0);
 }
