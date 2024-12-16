@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ContentDrawerLayout } from "@/components/content-drawer/content-drawer";
 import { FlexContainer, FlexItem } from "@/components/flex-content/flex-content";
-import { getChanceOfOutcomes,  Outcomes } from "./math";
+import { getChanceOfOutcomes, Outcomes } from "./math";
 
 import RemoveIcon from '@mui/icons-material/Remove';
 import CasinoIcon from '@mui/icons-material/Casino';
@@ -111,7 +111,7 @@ export default function Home() {
   const isBelowMd = useMediaQuery((theme) => theme.breakpoints.down("md"));
   const isBelowXl = useMediaQuery((theme) => theme.breakpoints.down("xl"));
 
-
+  const [calculating, setCalculating] = useState(false);
   const [outcomeChance, setOutcomeChance] = useState<Outcomes>({
     expectedValueHitting: 0,
     expectedValueStanding: 0,
@@ -130,12 +130,14 @@ export default function Home() {
   useEffect(() => {
     const fetchOutcomeChance = async () => {
       if (dealerHand.length <= 1) {
+        setCalculating(true);
         const outcomes = await getChanceOfOutcomes({
           dealerHand,
           playerHand,
           numCardsInDrawPile,
         });
         setOutcomeChance(outcomes);
+        setCalculating(false);
       }
     };
 
@@ -325,6 +327,7 @@ export default function Home() {
             setPlayerHand([]);
             setOtherCards([]);
           }}
+          disabled={calculating}
         >
           Reset Shoe
         </Button>
@@ -336,6 +339,7 @@ export default function Home() {
     <FormControl sx={{ width: "100%" }}>
       <FormLabel id="demo-row-radio-buttons-group-label">Dealer's Hand</FormLabel>
       <HandSelection
+        disabled={calculating}
         selectedCards={dealerHand}
         onAddCard={(card) => {
           setDealerHand([...dealerHand, card]);
@@ -352,6 +356,7 @@ export default function Home() {
     <FormControl sx={{ width: "100%" }}>
       <FormLabel id="demo-row-radio-buttons-group-label">Your Hand</FormLabel>
       <HandSelection
+        disabled={calculating}
         selectedCards={playerHand}
         onAddCard={(card) => {
           setPlayerHand([...playerHand, card]);
@@ -372,8 +377,27 @@ export default function Home() {
 
     let color = "success"
     let text = "Hit";
-
-    if (playerHandValue > 21) {
+    let sx = {}
+    if (calculating) {
+      color = "inherit";
+      text = "Calculating Odds...";
+      sx = {
+        animation: calculating
+          ? 'pulse 1.5s ease-in-out infinite'
+          : 'none',
+        '@keyframes pulse': {
+          '0%': {
+            opacity: 1,
+          },
+          '50%': {
+            opacity: 0.4,
+          },
+          '100%': {
+            opacity: 1,
+          },
+        },
+      }
+    } else if (playerHandValue > 21) {
       color = "inherit";
       text = "- Bust -";
     } else if (outcomeChance.shouldDouble) {
@@ -388,11 +412,11 @@ export default function Home() {
     }
 
     return (
-      <Typography component="div" color={color} fontWeight="bold">
+      <Typography component="div" color={color} fontWeight="bold" sx={sx}>
         {text}
       </Typography>
     );
-  }, [outcomeChance.expectedValueHitting, outcomeChance.expectedValueStanding, playerHandValue, outcomeChance.shouldDouble, outcomeChance.shouldSplit, outcomeChance.shouldStand]);
+  }, [outcomeChance.expectedValueHitting, outcomeChance.expectedValueStanding, playerHandValue, outcomeChance.shouldDouble, outcomeChance.shouldSplit, outcomeChance.shouldStand, calculating]);
 
   const cardsInPlayJsx = (
     <Box
@@ -409,7 +433,7 @@ export default function Home() {
       <Box alignContent="center" alignItems="center" justifyContent="center" textAlign="center">
         {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
           <Typography variant="caption" component="div">
-            {formatPercent(outcomeChance.dealerBust)} Chance Dealer Busts
+            {calculating ? "Calculating" : formatPercent(outcomeChance.dealerBust)} Chance Dealer Busts
           </Typography>
         )}
         <Hand
@@ -418,6 +442,7 @@ export default function Home() {
             dealerHand.splice(index, 1);
             setDealerHand([...dealerHand]);
           }}
+          disabled={calculating}
         />
         {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
           <Typography component="div">
@@ -428,27 +453,27 @@ export default function Home() {
       <Box alignContent="center" alignItems="center" justifyContent="center" textAlign="center">
         {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
           <Typography variant="caption" component="div">
-            {formatPercent(outcomeChance.playerBust)} Chance to Bust on Next Card
+            {calculating ? "Calculating" : formatPercent(outcomeChance.playerBust)} Chance to Bust on Next Card
           </Typography>
         )}
         {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
           <Typography variant="caption" component="div">
-            Stand has {formatPercent(outcomeChance.playerWin)} to win
+            Stand has {calculating ? "Calculating" : formatPercent(outcomeChance.playerWin)} to win
           </Typography>
         )}
         {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
           <Typography variant="caption" component="div">
-            EV of Standing: {formatEv(outcomeChance.expectedValueStanding)}
+            EV of Standing: {calculating ? "Calculating..." : formatEv(outcomeChance.expectedValueStanding)}
           </Typography>
         )}
         {Number.isFinite(outcomeChance.expectedValueHitting) && Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
           <Typography variant="caption" component="div" >
-            EV of Hitting: {formatEv(outcomeChance.expectedValueHitting as number)}
+            EV of Hitting: {calculating ? "Calculating..." : formatEv(outcomeChance.expectedValueHitting as number)}
           </Typography>
         )}
         {Number.isFinite(outcomeChance.expectedValueOfDoubleDown) && Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
           <Typography variant="caption" component="div" >
-            EV of Double: {formatEv(outcomeChance.expectedValueOfDoubleDown as number)}
+            EV of Double: {calculating ? "Calculating..." : formatEv(outcomeChance.expectedValueOfDoubleDown as number)}
           </Typography>
         )}
         <Hand
@@ -457,6 +482,7 @@ export default function Home() {
             playerHand.splice(index, 1);
             setPlayerHand([...playerHand]);
           }}
+          disabled={calculating}
         />
         {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
           <Typography component="div">
@@ -475,7 +501,7 @@ export default function Home() {
             setPlayerHand([]);
             setOtherCards([]);
           }}
-          disabled={!dealerHand.length}
+          disabled={!dealerHand.length || calculating}
         >
           End Round
         </Button>
@@ -487,6 +513,7 @@ export default function Home() {
     <FormControl sx={{ width: "100%" }}>
       <FormLabel id="demo-row-radio-buttons-group-label">Other Cards at the Table</FormLabel>
       <HandSelection
+        disabled={calculating}
         selectedCards={otherCards}
         onAddCard={(card) => {
           setOtherCards([...otherCards, card]);
@@ -559,13 +586,15 @@ interface HandSelectionProps {
   onAddCard: (card: string) => void;
   onRemoveCard?: (index: number) => void;
   selectedCards?: Array<string>;
+  disabled?: boolean
 }
 
 const HandSelection = (props: HandSelectionProps) => {
   const {
     onAddCard,
     onRemoveCard = () => { },
-    selectedCards
+    selectedCards,
+    disabled
   } = props;
 
   return (
@@ -575,7 +604,11 @@ const HandSelection = (props: HandSelectionProps) => {
         return (
           <Grid2 key={card} sx={{ opacity: numCards ? 1 : 0.5 }}>
             <Card sx={{ height: 70, width: 50 }}>
-              <CardActionArea sx={{ height: "100%", width: "100%", }} onClick={() => onAddCard(card)}>
+              <CardActionArea
+                sx={{ height: "100%", width: "100%" }}
+                onClick={() => onAddCard(card)}
+                disabled={disabled}
+              >
                 <CardContent
                   sx={{
                     alignContent: "center",
@@ -600,7 +633,7 @@ const HandSelection = (props: HandSelectionProps) => {
               </Typography>
               <IconButton
                 size="small"
-                disabled={!numCards}
+                disabled={!numCards || disabled}
                 onClick={() => onRemoveCard(selectedCards?.indexOf(card) || 0)}
               >
                 <RemoveIcon fontSize="small" color={numCards ? "error" : "disabled"} />
@@ -617,10 +650,11 @@ const HandSelection = (props: HandSelectionProps) => {
 interface HandProps {
   selectedCards: Array<string>;
   onRemoveCard: (index: number) => void;
+  disabled?: boolean;
 }
 
 const Hand = (props: HandProps) => {
-  const { selectedCards, onRemoveCard } = props;
+  const { selectedCards, onRemoveCard, disabled } = props;
 
   return (
     <Grid2 container size={{ xs: 12 }} alignContent="center" alignItems="center" justifyContent="center" spacing={2}>
@@ -630,6 +664,7 @@ const Hand = (props: HandProps) => {
             <CardActionArea
               sx={{ height: "100%", width: "100%" }}
               onClick={() => onRemoveCard(i)}
+              disabled={disabled}
             >
               <CardContent
                 sx={{
