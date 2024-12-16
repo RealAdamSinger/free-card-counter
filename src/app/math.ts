@@ -1,5 +1,6 @@
 import { CARDS, consolodate10sInDrawPile, getDealerOutcomes, getHandValue } from "./utils";
-
+import { WorkerPool } from './workers/worker-pool';
+import setupWorker from './workers/worker-setup';
 
 type CardsInDrawPile = {
   num2s: number;
@@ -16,7 +17,6 @@ type CardsInDrawPile = {
   numKs: number;
   numAs: number;
 };
-
 
 interface GetPlayerOutcomesIfHitProps {
   playerHand: Array<string>;
@@ -41,11 +41,10 @@ export function getChancePlayerBustOnHit({
     }
   }, { bust: 0, noBust: 0 });
 
-
   return counts.bust / (counts.bust + counts.noBust);
 }
 
-interface GetPlayerOutcomesingProps {
+interface GetPlayerOutcomesProps {
   dealerHand: Array<string>;
   playerHand: Array<string>;
   numCardsInDrawPile: CardsInDrawPile;
@@ -72,12 +71,12 @@ export async function getChanceOfOutcomes({
   playerHand,
   numCardsInDrawPile: numCardsInDrawPileProp,
   hitSoft17 = false
-}: GetPlayerOutcomesingProps): Promise<Outcomes> {
+}: GetPlayerOutcomesProps): Promise<Outcomes> {
   if (playerHand.length < 2 || !dealerHand.length) {
     return { dealerBust: 0, playerWin: 0, playerLose: 0, push: 0, expectedValueStanding: 0, expectedValueHitting: 0, shouldStand: false, playerBust: 0, shouldInsurance: false, shouldSplit: false, shouldDouble: false, expectedValueOfDoubleDown: 0 };
   }
   if (getHandValue(playerHand) > 21) {
-    return { dealerBust: 0, playerWin: 0, playerLose: 100, push: 0, expectedValueStanding: -1, expectedValueHitting: -1, shouldStand: false, playerBust: 100, shouldInsurance: false, shouldSplit: false, shouldDouble: false, expectedValueOfDoubleDown: 0 };
+    return { dealerBust: 0, playerWin: 0, playerLose: 1, push: 0, expectedValueStanding: -1, expectedValueHitting: -1, shouldStand: false, playerBust: 100, shouldInsurance: false, shouldSplit: false, shouldDouble: false, expectedValueOfDoubleDown: 0 };
   }
   const playerHandValue = getHandValue(playerHand);
 
@@ -111,16 +110,16 @@ export async function getChanceOfOutcomes({
 
   const shouldDouble = playerHand.length === 2 && expectedValueOfDoubleDown !== null && expectedValueOfDoubleDown > expectedValueHitting && expectedValueOfDoubleDown > expectedValueStanding;
 
-  const playerBust = getChancePlayerBustOnHit({ playerHand, numCardsInDrawPile }) * 100;
+  const playerBust = getChancePlayerBustOnHit({ playerHand, numCardsInDrawPile });
 
   const shouldStand = expectedValueStanding > expectedValueHitting;
   const shouldInsurance = dealerHand[0] === "A" && playerHand.length === 2;
 
   return {
-    dealerBust: dealerBust * 100,
-    playerWin: playerWin * 100,
-    playerLose: playerLose * 100,
-    push: push * 100,
+    dealerBust,
+    playerWin,
+    playerLose,
+    push,
     expectedValueStanding,
     expectedValueHitting,
     expectedValueOfDoubleDown,
@@ -132,6 +131,41 @@ export async function getChanceOfOutcomes({
   };
 }
 
+let workerPool: WorkerPool | null = null;
+
+// Add cleanup function
+export function cleanupWorkerPool() {
+  if (workerPool) {
+    workerPool.terminate();
+    workerPool = null;
+  }
+}
+
+function getWorkerPool(): WorkerPool {
+  if (!workerPool) {
+    if (typeof window === "undefined") {
+      throw new Error("WorkerPool can only be used in the browser.");
+    }
+    const workerUrl = setupWorker();
+    if (!workerUrl) {
+      throw new Error("Failed to setup worker");
+    }
+    workerPool = new WorkerPool(workerUrl);
+  }
+  return workerPool;
+}
+
+
+// Helper function to chunk array into n parts
+function chunkArray<T>(array: T[], n: number): T[][] {
+  const chunks: T[][] = [];
+  const size = Math.ceil(array.length / n);
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
+}
+
 export async function getExpectedValueIfHitting({
   playerHand,
   numCardsInDrawPile,
@@ -140,36 +174,53 @@ export async function getExpectedValueIfHitting({
   hitSoft17 = false,
   depth = 0,
   MAX_DEPTH = 2
-}: GetPlayerOutcomesingProps & { playerHandValue: number, depth?: number, MAX_DEPTH?: number }): Promise<number> {
-  // Create a new worker instance
-  const worker = new Worker(new URL('./expectedValue.worker.ts', import.meta.url));
+}: GetPlayerOutcomesProps & { playerHandValue: number, depth?: number, MAX_DEPTH?: number }): Promise<number> {
+  const pool = getWorkerPool();
+  const startTime = performance.now();
+  try {
+    // Split the cards into chunks based on the number of workers
+    const numWorkers = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4;
+    console.log(`Using ${numWorkers} workers for calculation`);
 
-  return new Promise((resolve, reject) => {
-    worker.onmessage = (e: MessageEvent<number | { error: string }>) => {
-      worker.terminate(); // Clean up the worker
-      if (typeof e.data === 'number') {
-        resolve(e.data);
-      } else {
-        reject(new Error(e.data.error));
+    const cardChunks = chunkArray(CARDS, numWorkers);
+    console.log('Card chunks:', cardChunks);
+
+    // Create promises for each chunk of work
+    const promises = cardChunks.map(cardSubset =>
+      pool.execute({
+        playerHand,
+        numCardsInDrawPile,
+        dealerHand,
+        playerHandValue,
+        hitSoft17,
+        depth,
+        MAX_DEPTH,
+        cardSubset
+      }).catch(error => {
+        console.error(`Worker error for subset ${cardSubset}:`, error);
+        throw error;
+      })
+    );
+
+    // Wait for all chunks to complete and sum their results
+    const results = await Promise.all(promises);
+    const totalExpectedValue = results.reduce((sum, value) => {
+      if (typeof value === 'number') {
+        return sum + value;
       }
-    };
+      throw new Error(value.error);
+    }, 0);
 
-    worker.onerror = (error) => {
-      worker.terminate(); // Clean up the worker
-      reject(error);
-    };
+    const endTime = performance.now();
+    console.log(`Calculation completed in ${endTime - startTime}ms`);
 
-    // Send the data to the worker
-    worker.postMessage({
-      playerHand,
-      numCardsInDrawPile,
-      dealerHand,
-      playerHandValue,
-      hitSoft17,
-      depth,
-      MAX_DEPTH
-    });
-  });
+    return totalExpectedValue;
+  } catch (error) {
+    console.error('Worker pool error:', error);
+    // If we get a worker error, cleanup the pool and rethrow
+    cleanupWorkerPool();
+    throw error;
+  }
 }
 
 function getShouldSplit(playerHand: Array<string>, dealerUpCard: string, numCardsInDrawPile: CardsInDrawPile): boolean {
@@ -224,7 +275,7 @@ function getExpectedValueOfDoubleDown({
   dealerHand,
   numCardsInDrawPile,
   hitSoft17 = false,
-}: GetPlayerOutcomesingProps): number {
+}: GetPlayerOutcomesProps): number {
   const playerHandValue = getHandValue(playerHand);
 
   // Consolidate the draw pile to simplify calculations
