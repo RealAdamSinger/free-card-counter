@@ -238,8 +238,9 @@ export async function getExpectedValueIfHitting({
   dealerHand,
   playerHandValue,
   hitSoft17 = false,
-  timeLimit
-}: GetPlayerOutcomesProps & { playerHandValue: number, timeLimit?: number }): Promise<number> {
+  timeLimit,
+  maxDepth = 2,
+}: GetPlayerOutcomesProps & { playerHandValue: number, timeLimit?: number, maxDepth?: number }): Promise<number> {
   const pool = getWorkerPool();
   const startTime = +new Date();
 
@@ -260,7 +261,9 @@ export async function getExpectedValueIfHitting({
         hitSoft17,
         cardSubset,
         startTime,
-        timeLimit
+        timeLimit,
+        depth: 0,
+        maxDepth,
       }).catch(error => {
         console.error(`Worker error for subset ${cardSubset}:`, error);
         throw error;

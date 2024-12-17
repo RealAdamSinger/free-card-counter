@@ -100,13 +100,13 @@ export default function Home() {
     num9s: 0, num10s: 0, numJs: 0, numQs: 0, numKs: 0, numAs: 0
   }), [usedCards]);
 
-  const hiLowCount = numCardsUsed.num2s + numCardsUsed.num3s + numCardsUsed.num4s + numCardsUsed.num5s + numCardsUsed.num6s
+  const highLowCount = numCardsUsed.num2s + numCardsUsed.num3s + numCardsUsed.num4s + numCardsUsed.num5s + numCardsUsed.num6s
     - numCardsUsed.num10s - numCardsUsed.numJs - numCardsUsed.numQs - numCardsUsed.numKs - numCardsUsed.numAs;
 
-  const Omega2Count = numCardsUsed.num2s + numCardsUsed.num3s * numCardsUsed.num7s
+  const Omega2Count = numCardsUsed.num2s + numCardsUsed.num3s + numCardsUsed.num7s
     + 2 * (numCardsUsed.num4s + numCardsUsed.num5s + numCardsUsed.num6s)
     - numCardsUsed.num9s
-    - 2 * (numCardsUsed.num10s + numCardsUsed.numJs + numCardsUsed.numQs + numCardsUsed.numKs + numCardsUsed.numAs);
+    - 2 * (numCardsUsed.num10s + numCardsUsed.numJs + numCardsUsed.numQs + numCardsUsed.numKs);
 
   const dealerValue = getHandValue(dealerHand);
   const playerHandValue = getHandValue(playerHand);
@@ -176,7 +176,7 @@ export default function Home() {
     </AppBar>
   )
 
-  const trueCount = hiLowCount / totalDecks;
+  const trueCount = highLowCount / totalDecks;
   const trueCountText = useMemo(() => {
     if (trueCount >= 2) {
       return `+${trueCount.toFixed(2)} 🔥🔥`;
@@ -197,20 +197,20 @@ export default function Home() {
   const Omega2TrueCount = Omega2Count / totalDecks;
   const Omega2TrueCountText = useMemo(() => {
     if (Omega2TrueCount >= 2) {
-      return `+${Omega2TrueCount.toFixed(2)} 🔥🔥`;
+      return `+${Omega2TrueCount.toFixed(2)} 🔥🔥 (${numCardsInDrawPile.numAs} Aces)`;
     } else if (Omega2TrueCount > 1) {
-      return `+${Omega2TrueCount.toFixed(2)} 🔥`;
+      return `+${Omega2TrueCount.toFixed(2)} 🔥 (${numCardsInDrawPile.numAs} Aces)`;
     } else if (Omega2TrueCount > .5) {
-      return `+${Omega2TrueCount.toFixed(2)} 👍🏻`;
+      return `+${Omega2TrueCount.toFixed(2)} 👍🏻 (${numCardsInDrawPile.numAs} Aces)`;
     } else if (Omega2TrueCount <= -2) {
-      return `${Omega2TrueCount.toFixed(2)} 💩💩`;
+      return `${Omega2TrueCount.toFixed(2)} 💩💩 (${numCardsInDrawPile.numAs} Aces)`;
     } else if (Omega2TrueCount < -1) {
-      return `${Omega2TrueCount.toFixed(2)} 💩`;
+      return `${Omega2TrueCount.toFixed(2)} 💩 (${numCardsInDrawPile.numAs} Aces)`;
     } else if (Omega2TrueCount < -.5) {
-      return `${Omega2TrueCount.toFixed(2)} 👎🏻`;
+      return `${Omega2TrueCount.toFixed(2)} 👎🏻 (${numCardsInDrawPile.numAs} Aces)`;
     }
-    return Omega2TrueCount.toFixed(2);
-  }, [Omega2Count]);
+    return `${Omega2TrueCount.toFixed(2)} (${numCardsInDrawPile.numAs} Aces)`;
+  }, [Omega2Count, totalDecks, numCardsInDrawPile.numAs]);
 
   const drawerJsx = (
     <Grid2 container size={{ xs: 12 }} spacing={2} p={2}>
@@ -220,7 +220,7 @@ export default function Home() {
         </Typography>
       </Grid2>
       <Grid2 size={{ xs: 12 }}>
-        Count: {hiLowCount}
+        Count: {highLowCount}
       </Grid2>
       <Grid2 size={{ xs: 12 }}>
         True Count: {trueCountText}
@@ -524,16 +524,15 @@ export default function Home() {
               {maxComputeTime}s
             </Typography>
             <Box display="flex" alignContent="center" alignItems="center" justifyContent="center" flexDirection="column">
-              <IconButton disabled={calculating} size="small" onClick={() => setMaxComputeTime(maxComputeTime + 1)}>
+              <IconButton disabled={calculating} size="small" onClick={() => setMaxComputeTime(maxComputeTime + 5)}>
                 <KeyboardArrowUpIcon />
               </IconButton>
-              <IconButton disabled={calculating} size="small" onClick={() => setMaxComputeTime(maxComputeTime - 1)}>
+              <IconButton disabled={calculating || maxComputeTime <= 5} size="small" onClick={() => setMaxComputeTime(maxComputeTime - 5)}>
                 <KeyboardArrowDownIcon />
               </IconButton>
             </Box>
           </Box>
         </FormControl>
-
       </Box>
     </Box>
   );

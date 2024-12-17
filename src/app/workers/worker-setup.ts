@@ -115,6 +115,8 @@ export default function setupWorker() {
       hitSoft17 = false,
       startTime,
       timeLimit = 10000,
+      maxDepth,
+      depth = 0,
       cardSubset = CARDS
     }) {
       const totalCardsInDrawPile = Object.values(numCardsInDrawPile)
@@ -146,7 +148,7 @@ export default function setupWorker() {
 
         const timeElapsed = +new Date() - startTime;
 
-        if (timeElapsed > timeLimit) {
+        if (timeElapsed > timeLimit || depth >= maxDepth) {
           const remainingDrawPile = { ...consolidatedDrawPile, [\`num\${card}s\`]: numCards - 1 };
           const dealerOutcomes = getDealerOutcomes({
             dealerHand,
@@ -189,6 +191,8 @@ export default function setupWorker() {
           hitSoft17,
           startTime,
           timeLimit,
+          maxDepth,
+          depth: depth + 1,
         });
 
         const evOptimal = Math.max(evStanding, evHittingAgain);
