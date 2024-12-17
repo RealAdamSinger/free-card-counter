@@ -11,6 +11,8 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import InfoIcon from '@mui/icons-material/Info';
+import EmailIcon from '@mui/icons-material/Email';
 
 import { useThemeContext } from "@/components/theme/theme";
 import {
@@ -28,14 +30,18 @@ import {
   Grid,
   Grid2,
   IconButton,
+  List,
+  ListItem,
   Radio,
   RadioGroup,
   TextField,
   Toolbar,
+  Tooltip,
   Typography,
   useMediaQuery
 } from "@mui/material";
-import { getHandValue } from "./utils";
+import { checkForBlackjack, getHandValue } from "./utils";
+
 
 function formatPercent(num: number) {
   return `${Math.round(num * 100)}%`;
@@ -62,6 +68,27 @@ type CardsInDrawPile = {
   numKs: number;
   numAs: number;
 };
+
+const PULSE_ANIMATION = {
+  animation: 'pulse 1.5s ease-in-out infinite',
+  '@keyframes pulse': {
+    '0%': {
+      opacity: 1,
+    },
+    '50%': {
+      opacity: 0.4,
+    },
+    '100%': {
+      opacity: 1,
+    },
+  },
+}
+
+const DISABLED_STYLES = {
+  opacity: 0.25,
+  // fade between opacity changes
+  transition: "opacity 0.5s",
+}
 
 export default function Home() {
 
@@ -111,7 +138,7 @@ export default function Home() {
   const dealerValue = getHandValue(dealerHand);
   const playerHandValue = getHandValue(playerHand);
 
-
+  const numCores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 1 : 1;
 
   const isBelowMd = useMediaQuery((theme) => theme.breakpoints.down("md"));
   const isBelowXl = useMediaQuery((theme) => theme.breakpoints.down("xl"));
@@ -161,6 +188,12 @@ export default function Home() {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Black Jack Counter
           </Typography>
+          <Tooltip title="Email adam@freecardcounter.com to make suggestions or report bugs">
+          <IconButton sx={{ color: "inherit" }}>
+            <EmailIcon />
+          </IconButton>
+          </Tooltip>
+
           <IconButton
             sx={{ color: "inherit" }}
             onClick={() => {
@@ -195,6 +228,7 @@ export default function Home() {
   }, [trueCount]);
 
   const Omega2TrueCount = Omega2Count / totalDecks;
+
   const Omega2TrueCountText = useMemo(() => {
     if (Omega2TrueCount >= 2) {
       return `+${Omega2TrueCount.toFixed(2)} 🔥🔥 (${numCardsInDrawPile.numAs} Aces)`;
@@ -210,7 +244,10 @@ export default function Home() {
       return `${Omega2TrueCount.toFixed(2)} 👎🏻 (${numCardsInDrawPile.numAs} Aces)`;
     }
     return `${Omega2TrueCount.toFixed(2)} (${numCardsInDrawPile.numAs} Aces)`;
-  }, [Omega2Count, totalDecks, numCardsInDrawPile.numAs]);
+  }, [
+    Omega2TrueCount,
+    numCardsInDrawPile.numAs,
+  ]);
 
   const drawerJsx = (
     <Grid2 container size={{ xs: 12 }} spacing={2} p={2}>
@@ -319,16 +356,16 @@ export default function Home() {
         value={`${totalDecks}`}
         onChange={(e) => setTotalDecks(parseInt(e.target.value))}
       >
-        <FormControlLabel value="1" control={<Radio />} label="1" />
-        <FormControlLabel value="2" control={<Radio />} label="2" />
-        <FormControlLabel value="3" control={<Radio />} label="3" />
-        <FormControlLabel value="4" control={<Radio />} label="4" />
-        <FormControlLabel value="5" control={<Radio />} label="5" />
-        <FormControlLabel value="6" control={<Radio />} label="6" />
-        <FormControlLabel value="7" control={<Radio />} label="7" />
-        <FormControlLabel value="8" control={<Radio />} label="8" />
-        <FormControlLabel value="9" control={<Radio />} label="9" />
-        <FormControlLabel value="10" control={<Radio />} label="10" />
+        <FormControlLabel value="1" control={<Radio />} label="1" disabled={calculating} />
+        <FormControlLabel value="2" control={<Radio />} label="2" disabled={calculating} />
+        <FormControlLabel value="3" control={<Radio />} label="3" disabled={calculating} />
+        <FormControlLabel value="4" control={<Radio />} label="4" disabled={calculating} />
+        <FormControlLabel value="5" control={<Radio />} label="5" disabled={calculating} />
+        <FormControlLabel value="6" control={<Radio />} label="6" disabled={calculating} />
+        <FormControlLabel value="7" control={<Radio />} label="7" disabled={calculating} />
+        <FormControlLabel value="8" control={<Radio />} label="8" disabled={calculating} />
+        <FormControlLabel value="9" control={<Radio />} label="9" disabled={calculating} />
+        <FormControlLabel value="10" control={<Radio />} label="10" disabled={calculating} />
         <Button
           color="primary"
           onClick={() => {
@@ -387,46 +424,81 @@ export default function Home() {
 
     let color = "success"
     let text = "Hit";
+    let tooltip = null;
     let sx = {}
     if (calculating) {
       color = "inherit";
       text = "Calculating Odds...";
-      sx = {
-        animation: calculating
-          ? 'pulse 1.5s ease-in-out infinite'
-          : 'none',
-        '@keyframes pulse': {
-          '0%': {
-            opacity: 1,
-          },
-          '50%': {
-            opacity: 0.4,
-          },
-          '100%': {
-            opacity: 1,
-          },
-        },
-      }
+      sx = PULSE_ANIMATION;
     } else if (playerHandValue > 21) {
-      color = "inherit";
+      color = "error";
       text = "- Bust -";
-    } else if (outcomeChance.shouldDouble) {
-      color = "primary";
-      text = "Double";
+    } else if (
+      dealerValue > 21
+      || (dealerValue >= 17 && dealerValue < playerHandValue)
+      || (dealerValue >= 17 && checkForBlackjack(playerHand) && !checkForBlackjack(dealerHand))
+    ) {
+      color = "success";
+      text = "- Win -";
+    } else if (
+      (dealerValue >= 17 && dealerValue === playerHandValue && !checkForBlackjack(dealerHand))
+      || (checkForBlackjack(playerHand) && checkForBlackjack(dealerHand))
+    ) {
+      color = "warning";
+      text = "- Push -";
+    } else if (
+      (dealerValue >= 17 && dealerValue > playerHandValue)
+      || (checkForBlackjack(dealerHand) && !checkForBlackjack(playerHand))
+    ) {
+      color = "error";
+      text = "- Lose -";
     } else if (outcomeChance.shouldSplit) {
       color = "primary";
-      text = "Split";
+      text = `Split (or ${outcomeChance.shouldDouble ? "Double or" : ""} ${outcomeChance.shouldStand ? "Stand" : "Hit"})`;
+      tooltip = (
+        <Typography component="div" fontSize={14}>
+          <Typography fontWeight="bold">Splitting Strategy:</Typography>
+          <ul>
+            <li>Always Split: Aces and 8s.</li>
+            <li>Never Split: 10s or J, Q, K.</li>
+            <li>Split:</li>
+            <ul>
+              <li>2s & 3s: Dealer shows 2-7.</li>
+              <li>6s: Dealer shows 3-6.</li>
+              <li>7s: Dealer shows 2-7.</li>
+              <li>9s: Dealer shows 2-6 or 8-9.</li>
+            </ul>
+          </ul>
+        </Typography >
+      )
+    } else if (outcomeChance.shouldDouble) {
+      color = "primary";
+      text = "Double (or Hit)";
     } else if (outcomeChance.shouldStand) {
       color = "error";
       text = "Stand";
     }
 
     return (
-      <Typography component="div" color={color} fontWeight="bold" sx={sx}>
-        {text}
-      </Typography>
+      <Tooltip title={tooltip}>
+        <Box display="flex" alignContent="center" alignItems="center" justifyContent="center">
+          <Typography component="div" color={color} fontWeight="bold" sx={sx}>
+            {text}
+          </Typography>
+          {tooltip && <InfoIcon sx={{ pl: .5 }} />}
+        </Box>
+      </Tooltip>
     );
-  }, [outcomeChance.expectedValueHitting, outcomeChance.expectedValueStanding, playerHandValue, outcomeChance.shouldDouble, outcomeChance.shouldSplit, outcomeChance.shouldStand, calculating]);
+  }, [
+    playerHand,
+    dealerHand,
+    playerHandValue,
+    dealerValue,
+    calculating,
+    outcomeChance.shouldDouble,
+    outcomeChance.shouldSplit,
+    outcomeChance.shouldStand
+  ]);
 
   const cardsInPlayJsx = (
     <Box
@@ -442,7 +514,7 @@ export default function Home() {
     >
       <Box alignContent="center" alignItems="center" justifyContent="center" textAlign="center">
         {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
-          <Typography variant="caption" component="div">
+          <Typography variant="caption" component="div" sx={calculating ? { opacity: 0.25 } : {}}>
             {calculating ? "Calculating" : formatPercent(outcomeChance.dealerBust)} Chance Dealer Busts
           </Typography>
         )}
@@ -462,28 +534,13 @@ export default function Home() {
       </Box>
       <Box alignContent="center" alignItems="center" justifyContent="center" textAlign="center">
         {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
-          <Typography variant="caption" component="div">
+          <Typography variant="caption" component="div" sx={calculating ? DISABLED_STYLES : {}}>
             {calculating ? "Calculating" : formatPercent(outcomeChance.playerBust)} Chance to Bust on Next Card
           </Typography>
         )}
         {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
-          <Typography variant="caption" component="div">
+          <Typography variant="caption" component="div" sx={calculating ? DISABLED_STYLES : {}}>
             Stand has {calculating ? "Calculating" : formatPercent(outcomeChance.playerWin)} to win
-          </Typography>
-        )}
-        {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
-          <Typography variant="caption" component="div">
-            EV of Standing: {calculating ? "Calculating..." : formatEv(outcomeChance.expectedValueStanding)}
-          </Typography>
-        )}
-        {Number.isFinite(outcomeChance.expectedValueHitting) && Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
-          <Typography variant="caption" component="div" >
-            EV of Hitting: {calculating ? "Calculating..." : formatEv(outcomeChance.expectedValueHitting as number)}
-          </Typography>
-        )}
-        {Number.isFinite(outcomeChance.expectedValueOfDoubleDown) && Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
-          <Typography variant="caption" component="div" >
-            EV of Double: {calculating ? "Calculating..." : formatEv(outcomeChance.expectedValueOfDoubleDown as number)}
           </Typography>
         )}
         <Hand
@@ -515,6 +572,26 @@ export default function Home() {
         >
           End Round
         </Button>
+      </Box>
+      <Box position="absolute" left={10} bottom={10} >
+        {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
+          <Typography variant="caption" component="div" sx={calculating ? DISABLED_STYLES : {}}>
+            EV of Standing: {calculating ? "Calculating..." : formatEv(outcomeChance.expectedValueStanding)}
+          </Typography>
+        )}
+        {Number.isFinite(outcomeChance.expectedValueHitting) && Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
+          <Typography variant="caption" component="div" sx={calculating ? DISABLED_STYLES : {}}>
+            EV of Hitting: {calculating ? "Calculating..." : formatEv(outcomeChance.expectedValueHitting as number)}
+          </Typography>
+        )}
+        {Number.isFinite(outcomeChance.expectedValueOfDoubleDown) && Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
+          <Typography variant="caption" component="div" sx={calculating ? DISABLED_STYLES : {}}>
+            EV of Double: {calculating ? "Calculating..." : formatEv(outcomeChance.expectedValueOfDoubleDown as number)}
+          </Typography>
+        )}
+        <Typography variant="overline" component="div" sx={{ opacity: .25 }} pb={0} pt={1} mb={0} lineHeight={1}>
+          Using {numCores} Cores
+        </Typography>
       </Box>
       <Box position="absolute" right={10} top={10} width={200}>
         <FormControl sx={{ width: "100%", textAlign: "right" }}>
@@ -626,7 +703,7 @@ const HandSelection = (props: HandSelectionProps) => {
   } = props;
 
   return (
-    <Grid2 container size={{ xs: 12 }} alignContent="center" alignItems="center" justifyContent="center" spacing={2}>
+    <Grid2 container size={{ xs: 12 }} alignContent="center" alignItems="center" justifyContent="center" spacing={2} sx={disabled ? DISABLED_STYLES : {}}>
       {CARDS.map((card) => {
         const numCards = selectedCards?.filter((c) => c === card).length || 0
         return (
@@ -685,7 +762,7 @@ const Hand = (props: HandProps) => {
   const { selectedCards, onRemoveCard, disabled } = props;
 
   return (
-    <Grid2 container size={{ xs: 12 }} alignContent="center" alignItems="center" justifyContent="center" spacing={2}>
+    <Grid2 container size={{ xs: 12 }} alignContent="center" alignItems="center" justifyContent="center" spacing={2} sx={disabled ? DISABLED_STYLES : {}}>
       {selectedCards.map((card, i) => (
         <Grid2 key={i}>
           <Card sx={{ height: 70, width: 50 }}>

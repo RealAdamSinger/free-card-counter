@@ -305,7 +305,7 @@ function getShouldSplit(playerHand: Array<string>, dealerUpCard: string, numCard
     return false;
   }
 
-  // Example splitting strategy based on common rules
+  // Example splitting strategy based on refined rules
   switch (cardRank) {
     case "A":
       // Always split Aces
@@ -320,19 +320,20 @@ function getShouldSplit(playerHand: Array<string>, dealerUpCard: string, numCard
       // Never split 10s or face cards
       return false;
     default:
-      // For other ranks, consider dealer's up card and basic strategy
+      // For other ranks, consider dealer's up card and optimal splitting strategy
       const dealerValue = parseInt(dealerUpCard) || (["J", "Q", "K"].includes(dealerUpCard) ? 10 : dealerUpCard === "A" ? 11 : 0);
+
       if (cardRank === "2" || cardRank === "3") {
-        return dealerValue >= 4 && dealerValue <= 7;
+        return dealerValue >= 2 && dealerValue <= 7; // Split 2s and 3s against dealer 2-7
       }
       if (cardRank === "6") {
-        return dealerValue >= 3 && dealerValue <= 6;
+        return dealerValue >= 3 && dealerValue <= 6; // Split 6s against dealer 3-6
       }
       if (cardRank === "7") {
-        return dealerValue >= 2 && dealerValue <= 7;
+        return dealerValue >= 2 && dealerValue <= 7; // Split 7s against dealer 2-7
       }
       if (cardRank === "9") {
-        return dealerValue !== 7 && dealerValue < 10;
+        return (dealerValue >= 2 && dealerValue <= 6) || dealerValue === 8 || dealerValue === 9; // Split 9s against 2-6, 8, 9
       }
       return false;
   }
