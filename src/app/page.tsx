@@ -9,6 +9,8 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import CasinoIcon from '@mui/icons-material/Casino';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 
 import { useThemeContext } from "@/components/theme/theme";
 import {
@@ -28,6 +30,7 @@ import {
   IconButton,
   Radio,
   RadioGroup,
+  TextField,
   Toolbar,
   Typography,
   useMediaQuery
@@ -63,6 +66,8 @@ type CardsInDrawPile = {
 export default function Home() {
 
   const { mode, setMode } = useThemeContext();
+
+  const [maxComputeTime, setMaxComputeTime] = useState<number>(10);
 
   const [totalDecks, setTotalDecks] = useState<number>(8);
 
@@ -127,6 +132,10 @@ export default function Home() {
     shouldInsurance: false,
   });
 
+  //this is so getChanceOfOutcomes doesn't have to be redefined every time the maxComputeTime changes
+  const maxComputeTimeRef = useRef(maxComputeTime);
+  maxComputeTimeRef.current = maxComputeTime;
+
   useEffect(() => {
     const fetchOutcomeChance = async () => {
       if (dealerHand.length <= 1) {
@@ -135,6 +144,7 @@ export default function Home() {
           dealerHand,
           playerHand,
           numCardsInDrawPile,
+          timeLimit: maxComputeTimeRef.current / 2, // divide by 2 because its a recursive function and it will take extra time to finish
         });
         setOutcomeChance(outcomes);
         setCalculating(false);
@@ -505,6 +515,25 @@ export default function Home() {
         >
           End Round
         </Button>
+      </Box>
+      <Box position="absolute" right={10} top={10} width={200}>
+        <FormControl sx={{ width: "100%", textAlign: "right" }}>
+          <FormLabel>Max Computation</FormLabel>
+          <Box display="flex" alignContent="center" alignItems="center" justifyContent="end" >
+            <Typography variant="h6" component="div">
+              {maxComputeTime}s
+            </Typography>
+            <Box display="flex" alignContent="center" alignItems="center" justifyContent="center" flexDirection="column">
+              <IconButton disabled={calculating} size="small" onClick={() => setMaxComputeTime(maxComputeTime + 1)}>
+                <KeyboardArrowUpIcon />
+              </IconButton>
+              <IconButton disabled={calculating} size="small" onClick={() => setMaxComputeTime(maxComputeTime - 1)}>
+                <KeyboardArrowDownIcon />
+              </IconButton>
+            </Box>
+          </Box>
+        </FormControl>
+
       </Box>
     </Box>
   );

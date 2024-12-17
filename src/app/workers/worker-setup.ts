@@ -113,8 +113,8 @@ export default function setupWorker() {
       dealerHand,
       playerHandValue,
       hitSoft17 = false,
-      depth = 0,
-      MAX_DEPTH = 2,
+      startTime,
+      timeLimit = 10000,
       cardSubset = CARDS
     }) {
       const totalCardsInDrawPile = Object.values(numCardsInDrawPile)
@@ -144,7 +144,9 @@ export default function setupWorker() {
           return expectedValue + probability * 1;
         }
 
-        if (depth >= MAX_DEPTH) {
+        const timeElapsed = +new Date() - startTime;
+
+        if (timeElapsed > timeLimit) {
           const remainingDrawPile = { ...consolidatedDrawPile, [\`num\${card}s\`]: numCards - 1 };
           const dealerOutcomes = getDealerOutcomes({
             dealerHand,
@@ -185,8 +187,8 @@ export default function setupWorker() {
           numCardsInDrawPile: remainingDrawPile,
           playerHandValue: newPlayerHandValue,
           hitSoft17,
-          depth: depth + 1,
-          MAX_DEPTH,
+          startTime,
+          timeLimit,
         });
 
         const evOptimal = Math.max(evStanding, evHittingAgain);
