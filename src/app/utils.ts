@@ -16,6 +16,48 @@ export type CardsInDrawPile = {
   numAs: number;
 };
 
+export const getResult = ({
+  playerHand,
+  dealerHand
+}: {
+  playerHand: Array<string>,
+  dealerHand: Array<string>,
+}): {
+  color: "error" | "success" | "warning" | "inherit",
+  result: 'lose' | 'win' | 'push' | 'waiting'
+} => {
+  let color: "error" | "success" | "warning" | "inherit" = "inherit";
+  let result: 'lose' | 'win' | 'push' | 'waiting' = 'waiting';
+
+  const playerHandValue = getHandValue(playerHand); // Assuming you have a function to calculate hand values
+  const dealerValue = getHandValue(dealerHand);
+
+  if (playerHandValue > 21 || (checkForBlackjack(dealerHand) && !checkForBlackjack(playerHand))) {
+    color = "error";
+    result = "lose";
+  } else if (
+    dealerValue > 21 ||
+    (dealerValue >= 17 && dealerValue < playerHandValue) ||
+    (dealerValue >= 17 && checkForBlackjack(playerHand) && !checkForBlackjack(dealerHand))
+  ) {
+    color = "success";
+    result = "win";
+  } else if (
+    (dealerValue >= 17 && dealerValue === playerHandValue && !checkForBlackjack(dealerHand)) ||
+    (checkForBlackjack(playerHand) && checkForBlackjack(dealerHand))
+  ) {
+    color = "warning";
+    result = "push";
+  } else if (dealerValue >= 17 && dealerValue > playerHandValue) {
+    color = "error";
+    result = "lose";
+  }
+
+  return { color, result };
+};
+
+
+
 export function consolodate10sInDrawPile(numCardsInDrawPile: CardsInDrawPile): CardsInDrawPile {
   const num10s = numCardsInDrawPile.num10s + numCardsInDrawPile.numJs + numCardsInDrawPile.numQs + numCardsInDrawPile.numKs;
   return {

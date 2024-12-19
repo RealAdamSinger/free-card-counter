@@ -10,9 +10,14 @@ import CasinoIcon from '@mui/icons-material/Casino';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardDoubleArrowDownIcon from "@mui/icons-material/KeyboardDoubleArrowDown";
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardDoubleArrowUpIcon from "@mui/icons-material/KeyboardDoubleArrowUp";
+
+
 import InfoIcon from '@mui/icons-material/Info';
 import EmailIcon from '@mui/icons-material/Email';
+
 
 import { useThemeContext } from "@/components/theme/theme";
 import {
@@ -27,20 +32,17 @@ import {
   FormControl,
   FormControlLabel,
   FormLabel,
-  Grid,
   Grid2,
   IconButton,
-  List,
-  ListItem,
+  Popover,
   Radio,
   RadioGroup,
-  TextField,
   Toolbar,
   Tooltip,
   Typography,
   useMediaQuery
 } from "@mui/material";
-import { checkForBlackjack, getHandValue } from "./utils";
+import { getHandValue, getResult } from "./utils";
 
 
 function formatPercent(num: number) {
@@ -90,6 +92,13 @@ const DISABLED_STYLES = {
   transition: "opacity 0.5s",
 }
 
+interface RoundHistory {
+  result: string;
+  trueHighLowCount: number;
+  trueOmega2Count: number;
+  color: "success" | "error" | "warning" | "inherit";
+}
+
 export default function Home() {
 
   const { mode, setMode } = useThemeContext();
@@ -103,6 +112,10 @@ export default function Home() {
   const [dealerHand, setDealerHand] = useState<Array<string>>([]);
   const [playerHand, setPlayerHand] = useState<Array<string>>([]);
   const [otherCards, setOtherCards] = useState<Array<string>>([]);
+
+  const [roundHistory, setRoundHistory] = useState<Array<RoundHistory>>([]);
+
+  const [dialogAnchorEl, setDialogAnchorEl] = useState<null | HTMLElement>(null);
 
   const numOfEachCard = totalDecks * 4;
   const usedCards = useMemo(() => [...dealerHand, ...playerHand, ...otherCards, ...discardPile], [dealerHand, playerHand, otherCards, discardPile]);
@@ -181,6 +194,8 @@ export default function Home() {
     fetchOutcomeChance();
   }, [dealerHand, playerHand, numCardsInDrawPile]);
 
+  const [makeButtonGlow, setMakeButtonGlow] = useState(false);
+
   const appBarJsx = (
     <AppBar position="static">
       <Container maxWidth="lg">
@@ -188,12 +203,64 @@ export default function Home() {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Black Jack Counter
           </Typography>
+          <Button
+            onClick={(e) => { setDialogAnchorEl(e.currentTarget) }}
+            variant="outlined"
+            sx={{
+              color: "inherit",
+              borderRadius: 20,
+              pl: 1.5,
+              position: "relative",
+              ...(makeButtonGlow && {
+                animation: "glow 1s ease-out",
+              }),
+              "@keyframes glow": {
+                "0%": { boxShadow: "0 0 5px rgba(255, 255, 255, 0.5)" },
+                "50%": { boxShadow: "0 0 20px rgba(255, 255, 255, 0.9)" },
+                "100%": { boxShadow: "0 0 5px rgba(255, 255, 255, 0.5)" },
+              },
+            }}
+            startIcon={(
+              <img
+                src="https://storage.ko-fi.com/cdn/brandasset/v2/kofi_symbol.png?_gl=1*1cyt4oo*_gcl_au*OTkyMjM5MTM2LjE3MzQ1MzE2MDI.*_ga*MTQ0Njg0Mzc1NS4xNzAzMTY4NTUy*_ga_M13FZ7VQ2C*MTczNDU3ODQwOS41MDEuMS4xNzM0NTc5MjA0LjEuMC4w"
+                style={{ height: 20 }}
+                alt="Tip the Creator"
+              />
+            )}
+          >
+            Leave a Tip
+          </Button>
+          <Popover
+            open={dialogAnchorEl !== null}
+            anchorEl={dialogAnchorEl}
+            onClose={() => { setDialogAnchorEl(null) }}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'left',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'left',
+            }}
+          >
+            <iframe
+              id='kofiframe'
+              src='https://ko-fi.com/adamsapps/?hidefeed=true&widget=true&embed=true&preview=true'
+              style={{
+                border: "none",
+                width: "100%",
+                padding: "4px",
+                background: "#f9f9f9",
+              }}
+              height='712'
+              title='adamsapps'>
+            </iframe>
+          </Popover>
           <Tooltip title="Email adam@freecardcounter.com to make suggestions or report bugs">
-          <IconButton sx={{ color: "inherit" }}>
-            <EmailIcon />
-          </IconButton>
+            <IconButton sx={{ color: "inherit" }}>
+              <EmailIcon />
+            </IconButton>
           </Tooltip>
-
           <IconButton
             sx={{ color: "inherit" }}
             onClick={() => {
@@ -206,7 +273,7 @@ export default function Home() {
           </IconButton>
         </Toolbar>
       </Container>
-    </AppBar>
+    </AppBar >
   )
 
   const trueCount = highLowCount / totalDecks;
@@ -422,61 +489,64 @@ export default function Home() {
       return null;
     }
 
-    let color = "success"
+    let color = "success";
     let text = "Hit";
     let tooltip = null;
-    let sx = {}
+    let sx = {};
+
     if (calculating) {
       color = "inherit";
       text = "Calculating Odds...";
       sx = PULSE_ANIMATION;
-    } else if (playerHandValue > 21) {
-      color = "error";
-      text = "- Bust -";
-    } else if (
-      dealerValue > 21
-      || (dealerValue >= 17 && dealerValue < playerHandValue)
-      || (dealerValue >= 17 && checkForBlackjack(playerHand) && !checkForBlackjack(dealerHand))
-    ) {
-      color = "success";
-      text = "- Win -";
-    } else if (
-      (dealerValue >= 17 && dealerValue === playerHandValue && !checkForBlackjack(dealerHand))
-      || (checkForBlackjack(playerHand) && checkForBlackjack(dealerHand))
-    ) {
-      color = "warning";
-      text = "- Push -";
-    } else if (
-      (dealerValue >= 17 && dealerValue > playerHandValue)
-      || (checkForBlackjack(dealerHand) && !checkForBlackjack(playerHand))
-    ) {
-      color = "error";
-      text = "- Lose -";
-    } else if (outcomeChance.shouldSplit) {
-      color = "primary";
-      text = `Split (or ${outcomeChance.shouldDouble ? "Double or" : ""} ${outcomeChance.shouldStand ? "Stand" : "Hit"})`;
-      tooltip = (
-        <Typography component="div" fontSize={14}>
-          <Typography fontWeight="bold">Splitting Strategy:</Typography>
-          <ul>
-            <li>Always Split: Aces and 8s.</li>
-            <li>Never Split: 10s or J, Q, K.</li>
-            <li>Split:</li>
+    } else {
+      if (dealerHand.length > 1 || playerHandValue > 21) {
+        const { color: resultColor, result } = getResult({ playerHand, dealerHand });
+
+        switch (result) {
+          case "win":
+            color = resultColor
+            text = "- Win -";
+            break;
+          case "push":
+            color = resultColor
+            text = "- Push -";
+            break;
+          case "lose":
+            color = resultColor
+            text = playerHandValue > 21 ? "- Bust -" : "- Lose -";
+            break;
+          case "waiting":
+            color = resultColor;
+            text = "- Waiting for Dealer -";
+          default:
+            break;
+        }
+      } else if (outcomeChance.shouldSplit) {
+        color = "primary";
+        text = `Split (or ${outcomeChance.shouldDouble ? "Double or" : ""} ${outcomeChance.shouldStand ? "Stand" : "Hit"})`;
+        tooltip = (
+          <Typography component="div" fontSize={14}>
+            <Typography fontWeight="bold">Splitting Strategy:</Typography>
             <ul>
-              <li>2s & 3s: Dealer shows 2-7.</li>
-              <li>6s: Dealer shows 3-6.</li>
-              <li>7s: Dealer shows 2-7.</li>
-              <li>9s: Dealer shows 2-6 or 8-9.</li>
+              <li>Always Split: Aces and 8s.</li>
+              <li>Never Split: 10s or J, Q, K.</li>
+              <li>Split:</li>
+              <ul>
+                <li>2s & 3s: Dealer shows 2-7.</li>
+                <li>6s: Dealer shows 3-6.</li>
+                <li>7s: Dealer shows 2-7.</li>
+                <li>9s: Dealer shows 2-6 or 8-9.</li>
+              </ul>
             </ul>
-          </ul>
-        </Typography >
-      )
-    } else if (outcomeChance.shouldDouble) {
-      color = "primary";
-      text = "Double (or Hit)";
-    } else if (outcomeChance.shouldStand) {
-      color = "error";
-      text = "Stand";
+          </Typography>
+        );
+      } else if (outcomeChance.shouldDouble) {
+        color = "primary";
+        text = "Double (or Hit)";
+      } else if (outcomeChance.shouldStand) {
+        color = "error";
+        text = "Stand";
+      }
     }
 
     return (
@@ -485,7 +555,7 @@ export default function Home() {
           <Typography component="div" color={color} fontWeight="bold" sx={sx}>
             {text}
           </Typography>
-          {tooltip && <InfoIcon sx={{ pl: .5 }} />}
+          {tooltip && <InfoIcon sx={{ pl: 0.5 }} />}
         </Box>
       </Tooltip>
     );
@@ -493,12 +563,12 @@ export default function Home() {
     playerHand,
     dealerHand,
     playerHandValue,
-    dealerValue,
     calculating,
-    outcomeChance.shouldDouble,
     outcomeChance.shouldSplit,
-    outcomeChance.shouldStand
+    outcomeChance.shouldDouble,
+    outcomeChance.shouldStand,
   ]);
+
 
   const cardsInPlayJsx = (
     <Box
@@ -563,12 +633,22 @@ export default function Home() {
           variant="contained"
           color="primary"
           onClick={() => {
+            const { color, result } = getResult({ playerHand, dealerHand });
+            setRoundHistory([...roundHistory, {
+              result,
+              color,
+              trueHighLowCount: trueCount,
+              trueOmega2Count: Omega2TrueCount,
+            }]);
             setDiscardPile([...discardPile, ...dealerHand, ...playerHand, ...otherCards]);
             setDealerHand([]);
             setPlayerHand([]);
             setOtherCards([]);
+            if (result === "win") {
+              setMakeButtonGlow(Math.random() < .1);
+            }
           }}
-          disabled={!dealerHand.length || calculating}
+          disabled={getHandValue(dealerHand) < 17 || calculating}
         >
           End Round
         </Button>
@@ -611,7 +691,7 @@ export default function Home() {
           </Box>
         </FormControl>
       </Box>
-    </Box>
+    </Box >
   );
 
   const otherCardsJsx = (
@@ -630,6 +710,63 @@ export default function Home() {
       />
     </FormControl>
   );
+
+  const roundHistoryJsx = useMemo(() => {
+    if (!roundHistory.length) {
+      return null;
+    }
+
+    return roundHistory.map((round, i) => {
+      const {
+        result,
+        color,
+        trueHighLowCount,
+        trueOmega2Count
+      } = round;
+
+      let icon = <RemoveIcon fontSize="small" color={color} />;
+
+      if (trueHighLowCount > 1.5) {
+        icon = <KeyboardDoubleArrowUpIcon fontSize="small" color={color} />
+      } else if (trueHighLowCount > .5) {
+        icon = <KeyboardArrowUpIcon fontSize="small" color={color} />
+      } else if (trueHighLowCount < -1.5) {
+        icon = <KeyboardDoubleArrowDownIcon fontSize="small" color={color} />
+      } else if (trueHighLowCount < -.5) {
+        icon = <KeyboardArrowDownIcon fontSize="small" color={color} />
+      }
+
+      return (
+        <Tooltip
+          key={i}
+          title={(
+            <Typography component="div">
+              {result === "win" ? "Win" : result === "lose" ? "Loss" : "Push"}
+              <br />
+              High-Low: {trueHighLowCount.toFixed(2)}
+              <br />
+              Omega II: {trueOmega2Count.toFixed(2)}
+            </Typography>
+          )}
+        >
+          {icon}
+        </Tooltip >
+      )
+    })
+  }, [roundHistory]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Smooth scroll to the far right whenever the content changes
+    if (containerRef.current) {
+      (containerRef.current as HTMLElement).scrollTo({
+        left: containerRef.current.scrollWidth,
+        behavior: "smooth",
+      });
+    }
+  }, [roundHistoryJsx]);
+
 
   const mainDashboardJsx = (
     <FlexContainer flexDirection="column">
@@ -666,6 +803,11 @@ export default function Home() {
             </Grid2>
           )}
         </Grid2>
+      </FlexItem>
+      <FlexItem flexDirection="column" enableScroll ref={containerRef}>
+        <Box whiteSpace="nowrap">
+          {roundHistoryJsx}
+        </Box>
       </FlexItem>
     </FlexContainer>
   );

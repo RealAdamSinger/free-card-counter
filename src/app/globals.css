@@ -7,6 +7,6 @@ body {
   padding: 0;
 }
 
-#__next-route-announcer__ {
+nextjs-portal {
   display: none !important;
 }
