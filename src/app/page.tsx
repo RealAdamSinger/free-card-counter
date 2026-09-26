@@ -659,27 +659,42 @@ export default function Home() {
           />
         ) : (
           <Box display="flex" gap={2} alignItems="flex-start" justifyContent="center" flexWrap="wrap">
-            {playerHands.map((hand, index) =>
-              index === focusedHandIndex ? (
-                <Box key={index} sx={{ border: 2, borderColor: "primary.main", borderRadius: 1, p: 0.5 }}>
-                  <Hand
-                    selectedCards={hand}
-                    onRemoveCard={(i) => updateFocusedHand(hand.filter((_, idx) => idx !== i))}
-                    disabled={calculating}
-                  />
-                  <Typography variant="caption" component="div" color="primary" textAlign="center">
-                    {hand.length ? getHandValue(hand) : ""}
-                  </Typography>
-                </Box>
-              ) : (
+            {playerHands.map((hand, index) => {
+              if (index === focusedHandIndex) {
+                return (
+                  <Box key={index} sx={{ border: 2, borderColor: "primary.main", borderRadius: 1, p: 0.5 }}>
+                    <Hand
+                      selectedCards={hand}
+                      onRemoveCard={(i) => updateFocusedHand(hand.filter((_, idx) => idx !== i))}
+                      disabled={calculating}
+                    />
+                    <Typography variant="caption" component="div" color="primary" textAlign="center">
+                      {hand.length ? getHandValue(hand) : ""}
+                    </Typography>
+                  </Box>
+                );
+              }
+              // Non-focused hands show their result on their own once the round
+              // is decided (getResult returns "waiting" until then).
+              const { color: resultColor, result } = hand.length
+                ? getResult({ playerHand: hand, dealerHand })
+                : { color: "inherit" as const, result: "waiting" as const };
+              const resultText =
+                result === "win" ? "Win"
+                : result === "push" ? "Push"
+                : result === "lose" ? (getHandValue(hand) > 21 ? "Bust" : "Loss")
+                : null;
+              return (
                 <SplitHandChip
                   key={index}
                   cards={hand}
+                  resultText={resultText}
+                  resultColor={resultColor}
                   disabled={calculating}
                   onClick={() => { if (!calculating) setFocusedHandIndex(index); }}
                 />
-              )
-            )}
+              );
+            })}
           </Box>
         )}
         {playerHands.length === 1 && Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
@@ -1023,13 +1038,15 @@ interface SplitHandChipProps {
   cards: Array<string>;
   onClick: () => void;
   disabled?: boolean;
+  resultText?: string | null;
+  resultColor?: "error" | "success" | "warning" | "inherit";
 }
 
 // A non-focused split hand: smaller, dimmed, and click-to-focus. Rendering the
 // cards statically (no per-card action) keeps clicks anywhere on the chip
 // focusing the hand rather than removing a card.
 const SplitHandChip = (props: SplitHandChipProps) => {
-  const { cards, onClick, disabled } = props;
+  const { cards, onClick, disabled, resultText, resultColor } = props;
   const value = getHandValue(cards);
 
   return (
@@ -1080,6 +1097,11 @@ const SplitHandChip = (props: SplitHandChipProps) => {
       <Typography variant="caption" component="div" textAlign="center">
         {cards.length ? value : ""}
       </Typography>
+      {resultText && (
+        <Typography variant="caption" component="div" textAlign="center" color={resultColor} fontWeight="bold">
+          {resultText}
+        </Typography>
+      )}
     </Box>
   );
 }
