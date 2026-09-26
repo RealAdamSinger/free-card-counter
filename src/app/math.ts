@@ -298,14 +298,9 @@ function getShouldSplit(playerHand: Array<string>, dealerUpCard: string, numCard
   }
 
   const cardRank = playerHand[0]; // Both cards are the same
-  const numCardsOfRank = numCardsInDrawPile[`num${cardRank}s` as keyof CardsInDrawPile] || 0;
 
-  if (numCardsOfRank < 2) {
-    // Cannot split if there are not enough cards left in the draw pile for splitting
-    return false;
-  }
-
-  // Example splitting strategy based on refined rules
+  // Splitting uses the two cards already in hand and draws any cards to each new
+  // hand, so it does not require more of this rank to remain in the shoe.
   switch (cardRank) {
     case "A":
       // Always split Aces
