@@ -176,7 +176,21 @@ export default function setupWorker() {
           return expectedValue + probability * -1;
         }
         if (newPlayerHandValue === 21) {
-          return expectedValue + probability * 1;
+          // Player always stands on 21. Score it against the real dealer
+          // play-out instead of assuming an automatic win: the dealer can also
+          // reach 21 (push), and a dealer natural blackjack beats this drawn 21
+          // (a hit-to-21 is 3+ cards, so never itself a natural).
+          const remainingDrawPile = { ...consolidatedDrawPile, [\`num\${card}s\`]: numCards - 1 };
+          const dealerDist = getDealerValueDistribution(dealerHand, remainingDrawPile, hitSoft17, dealerDistCache);
+          const dealerOutcomes = dealerOutcomesFromDistribution(dealerDist, newPlayerHand, newPlayerHandValue);
+
+          const totalOutcomes = dealerOutcomes.bust + dealerOutcomes.win + dealerOutcomes.lose + dealerOutcomes.push;
+          const playerWinProb = (dealerOutcomes.bust + dealerOutcomes.lose) / totalOutcomes;
+          const playerLoseProb = dealerOutcomes.win / totalOutcomes;
+          const pushProb = dealerOutcomes.push / totalOutcomes;
+
+          const evStanding = playerWinProb * 1 + pushProb * 0 + playerLoseProb * -1;
+          return expectedValue + probability * evStanding;
         }
 
         const timeElapsed = +new Date() - startTime;
