@@ -644,11 +644,17 @@ export default function Home() {
             setDealerHand([]);
             setPlayerHand([]);
             setOtherCards([]);
-            if (result === "win") {
-              setMakeButtonGlow(Math.random() < .1);
-            }
+
+            setMakeButtonGlow(
+              result === "win"
+              && (
+                Math.random() < .1 || (checkForBlackjack(playerHand)
+                  && !checkForBlackjack(dealerHand))
+              )
+            );
+
           }}
-          disabled={getHandValue(dealerHand) < 17 || calculating}
+          disabled={(playerHandValue <= 21 && dealerValue < 17) || calculating}
         >
           End Round
         </Button>
