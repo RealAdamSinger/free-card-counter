@@ -1,0 +1,6 @@
+allowBuilds:
+  # Not needed: this app is a static export and uses a plain <img>, so Next
+  # never invokes sharp's image optimization. Set true if you switch to next/image.
+  sharp: false
+  # ESLint's next import resolver; lint passes without its native build.
+  unrs-resolver: false
