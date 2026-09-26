@@ -1,8 +1,7 @@
-'use client';
-
 import ThemeProvider from "@/components/theme/theme";
-import { Box } from "@mui/material";
 import "./globals.css";
+
+export { metadata } from "./metadata";
 
 declare global {
   interface Window {
@@ -18,9 +17,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <ThemeProvider>
-          <Box height="100vh" width="100vw">
+          <div style={{ height: "100vh", width: "100vw" }}>
             {children}
-          </Box>
+          </div>
         </ThemeProvider>
       </body>
     </html>

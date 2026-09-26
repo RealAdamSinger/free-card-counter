@@ -810,19 +810,19 @@ export default function Home() {
           Using {numCores} Cores
         </Typography>
       </Box>
-      <Box position="absolute" right={10} top={10} width={200}>
+      <Box position="absolute" right={10} top={10} width={124}>
         <FormControl sx={{ width: "100%", textAlign: "right" }}>
-          <FormLabel>Max Computation</FormLabel>
-          <Box display="flex" alignContent="center" alignItems="center" justifyContent="end" >
-            <Typography variant="h6" component="div">
+          <FormLabel sx={{ fontSize: 10 }}>Max Computation</FormLabel>
+          <Box display="flex" alignItems="center" justifyContent="end">
+            <Typography variant="subtitle2" component="div">
               {maxComputeTime}s
             </Typography>
-            <Box display="flex" alignContent="center" alignItems="center" justifyContent="center" flexDirection="column">
-              <IconButton disabled={calculating} size="small" onClick={() => setMaxComputeTime(maxComputeTime + 5)}>
-                <KeyboardArrowUpIcon />
+            <Box display="flex" alignItems="center" justifyContent="center" flexDirection="column">
+              <IconButton disabled={calculating} size="small" sx={{ p: 0.25 }} onClick={() => setMaxComputeTime(maxComputeTime + 5)}>
+                <KeyboardArrowUpIcon fontSize="small" />
               </IconButton>
-              <IconButton disabled={calculating || maxComputeTime <= 5} size="small" onClick={() => setMaxComputeTime(maxComputeTime - 5)}>
-                <KeyboardArrowDownIcon />
+              <IconButton disabled={calculating || maxComputeTime <= 5} size="small" sx={{ p: 0.25 }} onClick={() => setMaxComputeTime(maxComputeTime - 5)}>
+                <KeyboardArrowDownIcon fontSize="small" />
               </IconButton>
             </Box>
           </Box>
