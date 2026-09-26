@@ -643,10 +643,22 @@ export default function Home() {
       display="flex"
       flexDirection="column"
       justifyContent="space-around"
-      border={2}
-      borderRadius={1}
-      borderColor="primary.main"
       position="relative"
+      sx={{
+        borderRadius: 1,
+        ...(mode === "casino"
+          ? {
+              p: 1,
+              bgcolor: "rgba(255, 255, 255, 0.04)",
+              border: "1px solid rgba(255, 215, 0, 0.35)",
+              boxShadow: "0 10px 34px rgba(0, 0, 0, 0.4)",
+              backdropFilter: "blur(2px)",
+            }
+          : {
+              border: 2,
+              borderColor: "primary.main",
+            }),
+      }}
     >
       <Box alignContent="center" alignItems="center" justifyContent="center" textAlign="center">
         {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
@@ -690,7 +702,7 @@ export default function Home() {
             {playerHands.map((hand, index) => {
               if (index === focusedHandIndex) {
                 return (
-                  <Box key={index} sx={{ border: 2, borderColor: "primary.main", borderRadius: 1, p: 0.5 }}>
+                  <Box key={index} sx={{ border: "1.5px solid", borderColor: "primary.main", borderRadius: 1, p: 1, ...(mode === "casino" ? { bgcolor: "rgba(255, 215, 0, 0.06)" } : {}) }}>
                     <Hand
                       selectedCards={hand}
                       onRemoveCard={(i) => updateFocusedHand(hand.filter((_, idx) => idx !== i))}
