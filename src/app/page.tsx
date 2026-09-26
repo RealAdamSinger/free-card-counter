@@ -42,7 +42,7 @@ import {
   Typography,
   useMediaQuery
 } from "@mui/material";
-import { getHandValue, getResult } from "./utils";
+import { checkForBlackjack, getHandValue, getResult } from "./utils";
 
 
 function formatPercent(num: number) {
