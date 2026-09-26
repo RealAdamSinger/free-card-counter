@@ -55,6 +55,14 @@ function formatEv(num: number) {
 
 // array of cards
 const CARDS: Array<string> = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+
+// Blackjack value of a single card rank (used to decide whether a pair can be
+// split; two 10-value cards such as 10 and K may be split).
+const cardValue = (card: string): number => {
+  if (card === "A") return 11;
+  if (card === "J" || card === "Q" || card === "K" || card === "10") return 10;
+  return parseInt(card);
+};
 type CardsInDrawPile = {
   num2s: number;
   num3s: number;
@@ -110,15 +118,24 @@ export default function Home() {
   const [discardPile, setDiscardPile] = useState<Array<string>>([]);
 
   const [dealerHand, setDealerHand] = useState<Array<string>>([]);
-  const [playerHand, setPlayerHand] = useState<Array<string>>([]);
+  // Player can hold multiple hands after splitting. Exactly one is focused at a
+  // time; splits keep their left/right order and focusing only changes which
+  // hand the controls and odds apply to. Always has at least one entry.
+  const [playerHands, setPlayerHands] = useState<Array<Array<string>>>([[]]);
+  const [focusedHandIndex, setFocusedHandIndex] = useState<number>(0);
   const [otherCards, setOtherCards] = useState<Array<string>>([]);
 
   const [roundHistory, setRoundHistory] = useState<Array<RoundHistory>>([]);
 
   const [dialogAnchorEl, setDialogAnchorEl] = useState<null | HTMLElement>(null);
 
+  // The focused hand is what the odds panel, feedback, and card pickers act on.
+  const playerHand = useMemo(() => playerHands[focusedHandIndex] ?? [], [playerHands, focusedHandIndex]);
+  const updateFocusedHand = (newHand: Array<string>) =>
+    setPlayerHands((prev) => prev.map((h, i) => (i === focusedHandIndex ? newHand : h)));
+
   const numOfEachCard = totalDecks * 4;
-  const usedCards = useMemo(() => [...dealerHand, ...playerHand, ...otherCards, ...discardPile], [dealerHand, playerHand, otherCards, discardPile]);
+  const usedCards = useMemo(() => [...dealerHand, ...playerHands.flat(), ...otherCards, ...discardPile], [dealerHand, playerHands, otherCards, discardPile]);
 
   const numCardsInDrawPile: CardsInDrawPile = useMemo(() => CARDS.reduce<CardsInDrawPile>(
     (acc, card) => {
@@ -195,6 +212,27 @@ export default function Home() {
   }, [dealerHand, playerHand, numCardsInDrawPile]);
 
   const [makeButtonGlow, setMakeButtonGlow] = useState(false);
+
+  const canSplit =
+    playerHand.length === 2 && cardValue(playerHand[0]) === cardValue(playerHand[1]);
+
+  const splitFocusedHand = () => {
+    if (!canSplit || calculating) return;
+    setPlayerHands((prev) => {
+      const hand = prev[focusedHandIndex];
+      if (!hand || hand.length !== 2) return prev;
+      const next = [...prev];
+      // Replace the focused hand with two one-card hands, in place, so their
+      // left/right order is preserved. Focus stays on the left hand.
+      next.splice(focusedHandIndex, 1, [hand[0]], [hand[1]]);
+      return next;
+    });
+  };
+
+  const nonEmptyHands = playerHands.filter((h) => h.length > 0);
+  const allHandsBusted =
+    nonEmptyHands.length > 0 && nonEmptyHands.every((h) => getHandValue(h) > 21);
+  const canEndRound = (allHandsBusted || dealerValue >= 17) && !calculating;
 
   const appBarJsx = (
     <AppBar position="static">
@@ -438,7 +476,8 @@ export default function Home() {
           onClick={() => {
             setDiscardPile([]);
             setDealerHand([]);
-            setPlayerHand([]);
+            setPlayerHands([[]]);
+            setFocusedHandIndex(0);
             setOtherCards([]);
           }}
           disabled={calculating}
@@ -473,11 +512,10 @@ export default function Home() {
         disabled={calculating}
         selectedCards={playerHand}
         onAddCard={(card) => {
-          setPlayerHand([...playerHand, card]);
+          updateFocusedHand([...playerHand, card]);
         }}
         onRemoveCard={(index) => {
-          playerHand.splice(index, 1);
-          setPlayerHand([...playerHand]);
+          updateFocusedHand(playerHand.filter((_, i) => i !== index));
         }}
       />
     </FormControl>
@@ -613,48 +651,85 @@ export default function Home() {
             Stand has {calculating ? "Calculating" : formatPercent(outcomeChance.playerWin)} to win
           </Typography>
         )}
-        <Hand
-          selectedCards={playerHand}
-          onRemoveCard={(index) => {
-            playerHand.splice(index, 1);
-            setPlayerHand([...playerHand]);
-          }}
-          disabled={calculating}
-        />
-        {Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
+        {playerHands.length === 1 ? (
+          <Hand
+            selectedCards={playerHand}
+            onRemoveCard={(index) => updateFocusedHand(playerHand.filter((_, i) => i !== index))}
+            disabled={calculating}
+          />
+        ) : (
+          <Box display="flex" gap={2} alignItems="flex-start" justifyContent="center" flexWrap="wrap">
+            {playerHands.map((hand, index) =>
+              index === focusedHandIndex ? (
+                <Box key={index} sx={{ border: 2, borderColor: "primary.main", borderRadius: 1, p: 0.5 }}>
+                  <Hand
+                    selectedCards={hand}
+                    onRemoveCard={(i) => updateFocusedHand(hand.filter((_, idx) => idx !== i))}
+                    disabled={calculating}
+                  />
+                  <Typography variant="caption" component="div" color="primary" textAlign="center">
+                    {hand.length ? getHandValue(hand) : ""}
+                  </Typography>
+                </Box>
+              ) : (
+                <SplitHandChip
+                  key={index}
+                  cards={hand}
+                  disabled={calculating}
+                  onClick={() => { if (!calculating) setFocusedHandIndex(index); }}
+                />
+              )
+            )}
+          </Box>
+        )}
+        {playerHands.length === 1 && Boolean(playerHand.length > 1) && Boolean(dealerHand.length) && (
           <Typography component="div">
             {playerHandValue}
           </Typography>
         )}
         {feedbackJsx}
+        {canSplit && Boolean(dealerHand.length) && !calculating && (
+          <Box display="flex" justifyContent="center" mt={1}>
+            <Button
+              variant="outlined"
+              color="primary"
+              size="small"
+              onClick={splitFocusedHand}
+            >
+              Split
+            </Button>
+          </Box>
+        )}
       </Box>
       <Box position="absolute" right={10} bottom={10}>
         <Button
           variant="contained"
           color="primary"
           onClick={() => {
-            const { color, result } = getResult({ playerHand, dealerHand });
-            setRoundHistory([...roundHistory, {
-              result,
-              color,
-              trueHighLowCount: trueCount,
-              trueOmega2Count: Omega2TrueCount,
-            }]);
-            setDiscardPile([...discardPile, ...dealerHand, ...playerHand, ...otherCards]);
+            const handsToScore = playerHands.filter((h) => h.length > 0);
+            const historyEntries = handsToScore.map((h) => {
+              const { color, result } = getResult({ playerHand: h, dealerHand });
+              return {
+                result,
+                color,
+                trueHighLowCount: trueCount,
+                trueOmega2Count: Omega2TrueCount,
+              };
+            });
+            setRoundHistory([...roundHistory, ...historyEntries]);
+            setDiscardPile([...discardPile, ...dealerHand, ...playerHands.flat(), ...otherCards]);
             setDealerHand([]);
-            setPlayerHand([]);
+            setPlayerHands([[]]);
+            setFocusedHandIndex(0);
             setOtherCards([]);
 
-            setMakeButtonGlow(
-              result === "win"
-              && (
-                Math.random() < .1 || (checkForBlackjack(playerHand)
-                  && !checkForBlackjack(dealerHand))
-              )
+            const wonAHand = historyEntries.some((e) => e.result === "win");
+            const naturalWin = handsToScore.some(
+              (h) => checkForBlackjack(h) && !checkForBlackjack(dealerHand)
             );
-
+            setMakeButtonGlow(wonAHand && (Math.random() < .1 || naturalWin));
           }}
-          disabled={(playerHandValue <= 21 && dealerValue < 17) || calculating}
+          disabled={!canEndRound}
         >
           End Round
         </Button>
@@ -940,5 +1015,71 @@ const Hand = (props: HandProps) => {
         </Grid2>
       ))}
     </Grid2>
+  );
+}
+
+
+interface SplitHandChipProps {
+  cards: Array<string>;
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+// A non-focused split hand: smaller, dimmed, and click-to-focus. Rendering the
+// cards statically (no per-card action) keeps clicks anywhere on the chip
+// focusing the hand rather than removing a card.
+const SplitHandChip = (props: SplitHandChipProps) => {
+  const { cards, onClick, disabled } = props;
+  const value = getHandValue(cards);
+
+  return (
+    <Box
+      onClick={onClick}
+      sx={{
+        cursor: disabled ? "default" : "pointer",
+        userSelect: "none",
+        opacity: disabled ? 0.4 : 0.7,
+        transform: "scale(0.85)",
+        transformOrigin: "top center",
+        border: 2,
+        borderColor: "transparent",
+        borderRadius: 1,
+        p: 0.5,
+        transition: "opacity 0.2s, border-color 0.2s",
+        "&:hover": disabled ? {} : { opacity: 1, borderColor: "divider" },
+      }}
+    >
+      <Box display="flex" gap={0.5} justifyContent="center" minHeight={54}>
+        {cards.length === 0 ? (
+          <Typography variant="caption" color="text.secondary" alignSelf="center">
+            empty
+          </Typography>
+        ) : (
+          cards.map((card, i) => (
+            <Box
+              key={i}
+              sx={{
+                height: 54,
+                width: 38,
+                borderRadius: 1,
+                bgcolor: "background.paper",
+                border: 1,
+                borderColor: "divider",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Typography variant="body1" component="div">
+                {card}
+              </Typography>
+            </Box>
+          ))
+        )}
+      </Box>
+      <Typography variant="caption" component="div" textAlign="center">
+        {cards.length ? value : ""}
+      </Typography>
+    </Box>
   );
 }
