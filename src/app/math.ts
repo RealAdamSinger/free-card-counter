@@ -239,7 +239,7 @@ export async function getExpectedValueIfHitting({
   playerHandValue,
   hitSoft17 = false,
   timeLimit,
-  maxDepth = 2,
+  maxDepth = 5,
 }: GetPlayerOutcomesProps & { playerHandValue: number, timeLimit?: number, maxDepth?: number }): Promise<number> {
   const pool = getWorkerPool();
   const startTime = +new Date();

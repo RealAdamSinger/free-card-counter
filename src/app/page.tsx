@@ -100,6 +100,17 @@ const DISABLED_STYLES = {
   transition: "opacity 0.5s",
 }
 
+const KOFI_ICON_URL = "https://storage.ko-fi.com/cdn/brandasset/v2/kofi_symbol.png?_gl=1*1cyt4oo*_gcl_au*OTkyMjM5MTM2LjE3MzQ1MzE2MDI.*_ga*MTQ0Njg0Mzc1NS4xNzAzMTY4NTUy*_ga_M13FZ7VQ2C*MTczNDU3ODQwOS41MDEuMS4xNzM0NTc5MjA0LjEuMC4w";
+
+// Shared "glow once" styling used to nudge the tip buttons after a win.
+const GLOW_SX = {
+  "@keyframes glow": {
+    "0%": { boxShadow: "0 0 5px rgba(255, 255, 255, 0.5)" },
+    "50%": { boxShadow: "0 0 20px rgba(255, 255, 255, 0.9)" },
+    "100%": { boxShadow: "0 0 5px rgba(255, 255, 255, 0.5)" },
+  },
+}
+
 interface RoundHistory {
   result: string;
   trueHighLowCount: number;
@@ -252,15 +263,11 @@ export default function Home() {
               ...(makeButtonGlow && {
                 animation: "glow 1s ease-out",
               }),
-              "@keyframes glow": {
-                "0%": { boxShadow: "0 0 5px rgba(255, 255, 255, 0.5)" },
-                "50%": { boxShadow: "0 0 20px rgba(255, 255, 255, 0.9)" },
-                "100%": { boxShadow: "0 0 5px rgba(255, 255, 255, 0.5)" },
-              },
+              ...GLOW_SX,
             }}
             startIcon={(
               <img
-                src="https://storage.ko-fi.com/cdn/brandasset/v2/kofi_symbol.png?_gl=1*1cyt4oo*_gcl_au*OTkyMjM5MTM2LjE3MzQ1MzE2MDI.*_ga*MTQ0Njg0Mzc1NS4xNzAzMTY4NTUy*_ga_M13FZ7VQ2C*MTczNDU3ODQwOS41MDEuMS4xNzM0NTc5MjA0LjEuMC4w"
+                src={KOFI_ICON_URL}
                 style={{ height: 20 }}
                 alt="Tip the Creator"
               />
@@ -607,6 +614,27 @@ export default function Home() {
     outcomeChance.shouldStand,
   ]);
 
+  // Advice/result text and the Split action for the focused hand. Rendered with
+  // the focused hand so it tracks that hand (rather than the viewport center)
+  // when hands are split.
+  const focusedActionsJsx = (
+    <>
+      {feedbackJsx}
+      {canSplit && Boolean(dealerHand.length) && !calculating && (
+        <Box display="flex" justifyContent="center" mt={1}>
+          <Button
+            variant="outlined"
+            color="primary"
+            size="small"
+            onClick={splitFocusedHand}
+          >
+            Split
+          </Button>
+        </Box>
+      )}
+    </>
+  );
+
 
   const cardsInPlayJsx = (
     <Box
@@ -671,6 +699,7 @@ export default function Home() {
                     <Typography variant="caption" component="div" color="primary" textAlign="center">
                       {hand.length ? getHandValue(hand) : ""}
                     </Typography>
+                    {focusedActionsJsx}
                   </Box>
                 );
               }
@@ -702,21 +731,21 @@ export default function Home() {
             {playerHandValue}
           </Typography>
         )}
-        {feedbackJsx}
-        {canSplit && Boolean(dealerHand.length) && !calculating && (
-          <Box display="flex" justifyContent="center" mt={1}>
-            <Button
-              variant="outlined"
-              color="primary"
-              size="small"
-              onClick={splitFocusedHand}
-            >
-              Split
-            </Button>
-          </Box>
-        )}
+        {playerHands.length === 1 && focusedActionsJsx}
       </Box>
-      <Box position="absolute" right={10} bottom={10}>
+      <Box position="absolute" right={10} bottom={10} display="flex" alignItems="center" gap={1}>
+        <Tooltip title="Leave a tip">
+          <IconButton
+            size="small"
+            onClick={(e) => { setDialogAnchorEl(e.currentTarget); }}
+            sx={{
+              ...(makeButtonGlow && { animation: "glow 1s ease-out" }),
+              ...GLOW_SX,
+            }}
+          >
+            <img src={KOFI_ICON_URL} style={{ height: 20 }} alt="Leave a tip" />
+          </IconButton>
+        </Tooltip>
         <Button
           variant="contained"
           color="primary"
