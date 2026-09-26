@@ -321,7 +321,12 @@ export default function Home() {
     </AppBar >
   )
 
-  const trueCount = highLowCount / totalDecks;
+  // True count divides the running count by the decks REMAINING in the shoe
+  // (cards left / 52), not the total shoe size, so it strengthens as the shoe
+  // is dealt down. We track every card, so decks remaining is exact.
+  const cardsRemaining = Object.values(numCardsInDrawPile).reduce((sum, c) => sum + c, 0);
+  const decksRemaining = cardsRemaining / 52;
+  const trueCount = decksRemaining > 0 ? highLowCount / decksRemaining : 0;
   const trueCountText = useMemo(() => {
     if (trueCount >= 2) {
       return `+${trueCount.toFixed(2)} 🔥🔥`;
@@ -339,7 +344,7 @@ export default function Home() {
     return trueCount.toFixed(2);
   }, [trueCount]);
 
-  const Omega2TrueCount = Omega2Count / totalDecks;
+  const Omega2TrueCount = decksRemaining > 0 ? Omega2Count / decksRemaining : 0;
 
   const Omega2TrueCountText = useMemo(() => {
     if (Omega2TrueCount >= 2) {
