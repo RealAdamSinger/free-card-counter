@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import ThemeProvider from "@/components/theme/theme";
 import "./globals.css";
 
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
           </div>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
